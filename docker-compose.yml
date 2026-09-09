@@ -6,7 +6,7 @@ services:
     # build:
     #   context: .
     #   dockerfile: docker/backend/Dockerfile
-    container_name: imageshelf
+    container_name: albumshelf
     ports:
       - "${PORT:-8160}:8080"                 # 左侧宿主端口 = 浏览器访问端口，默认 8160；容器内固定 8080 勿改
     environment:
