@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 目录树入口：顶部虚拟「收藏夹」节点 + 根节点 "Images" 默认展开；应用启动即加载根目录
+// 目录树入口：顶部虚拟「收藏夹」节点 + 根节点 "Images"（恒展开）；启动时恢复上次会话（当前目录与展开状态）
 import { onMounted, watch } from 'vue'
 import { useFolderStore } from '../../stores/folder'
 import { useFavoritesStore } from '../../stores/favorites'
@@ -29,9 +29,10 @@ watch(
   { immediate: true },
 )
 
-// 初始加载统一由此处负责（BrowserPage 不再重复触发，避免双重请求）
+// 初始加载统一由此处负责（BrowserPage 不再重复触发，避免双重请求）；
+// restore 恢复上次会话的当前目录与展开状态，无记录/失效时回退根目录
 onMounted(() => {
-  store.openFolder('/')
+  store.restore()
 })
 </script>
 
@@ -66,7 +67,6 @@ onMounted(() => {
     </button>
     <FolderItem
       :folder="root"
-      :default-expanded="true"
       @select="(path: string) => store.openFolder(path)"
     />
   </nav>

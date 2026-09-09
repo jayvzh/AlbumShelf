@@ -109,8 +109,23 @@ func (a *App) registerStatic() {
 			http.NotFound(c.Writer, c.Request)
 			return
 		}
+		// 先匹配 dist 根目录下真实存在的静态文件（如 public 资源 favicon.svg），
+		// 命中则按文件返回（Content-Type 由扩展名推断）；未命中再回 index.html
+		// 交给前端路由处理。filepath.Join 会清洗路径，避免目录穿越。
+		if p := strings.TrimPrefix(filepath.Clean(c.Request.URL.Path), "/"); p != "" {
+			if fp := filepath.Join(distDir, p); isRegularFile(fp) {
+				c.File(fp)
+				return
+			}
+		}
 		c.File(filepath.Join(distDir, "index.html"))
 	})
+}
+
+// isRegularFile 判断路径是否为存在的普通文件（非目录），用于区分静态资源与前端路由。
+func isRegularFile(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && !fi.IsDir()
 }
 
 // Run 启动 HTTP 服务并阻塞，直至退出。

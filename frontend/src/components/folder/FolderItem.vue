@@ -6,21 +6,17 @@ import { useAuthStore } from '../../stores/auth'
 import { useProtectedStore } from '../../stores/protected'
 import type { FolderItem as FolderItemType } from '../../types/folder'
 
-const props = withDefaults(
-  defineProps<{
-    folder: FolderItemType
-    defaultExpanded?: boolean
-  }>(),
-  { defaultExpanded: false },
-)
+const props = defineProps<{
+  folder: FolderItemType
+}>()
 const emit = defineEmits<{ select: [path: string] }>()
 
 const store = useFolderStore()
 const auth = useAuthStore()
 const protectedStore = useProtectedStore()
 
-// 展开状态为组件局部 UI 状态
-const expanded = ref(props.defaultExpanded)
+// 展开状态收敛到 folder store（localStorage 持久化，刷新后恢复）；根节点恒展开
+const expanded = computed(() => props.folder.path === '/' || !!store.expandedPaths[props.folder.path])
 
 const children = computed(() => store.children[props.folder.path])
 // 未加载（undefined）时先显示箭头；已加载且无子目录则隐藏
@@ -45,11 +41,9 @@ async function toggleLock() {
   }
 }
 
-async function toggle() {
-  expanded.value = !expanded.value
-  if (expanded.value && !store.children[props.folder.path]) {
-    await store.loadChildren(props.folder.path)
-  }
+// 展开/折叠走 store action（含按需加载子目录与持久化）
+function toggle() {
+  return store.toggleExpanded(props.folder.path)
 }
 </script>
 
