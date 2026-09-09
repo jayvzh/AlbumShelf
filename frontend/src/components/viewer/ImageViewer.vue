@@ -204,7 +204,7 @@ function zoomAtCenter(factor: number) {
       </AppButton>
 
       <!-- 收藏浮动按钮组：✕ 正下方竖排，低调（半透明）不影响浏览；已收藏柔和红。
-           单图帧 1 个按钮；双页帧 2 个并带 L/R 标记，按帧内 images 下标映射视觉左/右 -->
+           单图帧 1 个按钮；双页帧 2 个并带 L/R 标记（位于心形左侧），按帧内 images 下标映射视觉左/右 -->
       <div
         v-if="favorites.available && currentFrame"
         class="absolute right-3 top-14 z-10 flex flex-col items-center gap-1"
@@ -212,8 +212,13 @@ function zoomAtCenter(factor: number) {
         <div
           v-for="(image, i) in currentFrame.images"
           :key="image.path"
-          class="flex flex-col items-center opacity-50 transition-opacity hover:opacity-90"
+          class="flex items-center gap-0.5 opacity-50 transition-opacity hover:opacity-90"
         >
+          <span
+            v-if="currentFrame.images.length > 1"
+            class="text-[10px] leading-none"
+            :class="favorites.has(image.path) ? 'text-red-400' : 'text-ink'"
+          >{{ i === 0 ? 'L' : 'R' }}</span>
           <button
             type="button"
             :title="favorites.has(image.path) ? '取消收藏 (S)' : '收藏 (S)'"
@@ -222,7 +227,7 @@ function zoomAtCenter(factor: number) {
             @click="toggleFrameFavorite(i)"
           >
             <svg
-              class="h-4 w-4"
+              class="h-[18px] w-[18px]"
               viewBox="0 0 24 24"
               :fill="favorites.has(image.path) ? 'currentColor' : 'none'"
               stroke="currentColor"
@@ -233,11 +238,6 @@ function zoomAtCenter(factor: number) {
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
             </svg>
           </button>
-          <span
-            v-if="currentFrame.images.length > 1"
-            class="text-[10px] leading-none"
-            :class="favorites.has(image.path) ? 'text-red-400' : 'text-ink'"
-          >{{ i === 0 ? 'L' : 'R' }}</span>
         </div>
       </div>
     </div>
