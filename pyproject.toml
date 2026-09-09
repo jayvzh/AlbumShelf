@@ -1,0 +1,23 @@
+[project]
+name = "imageshelf-tools"
+version = "0.1.0"
+description = "AlbumShelf・NAS图集馆 开发辅助工具（脚本 / 联调 / 测试），主项目为 Go + Vue3，见 docs/"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "requests>=2.32",
+    "pillow>=10.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["scripts", "tests"]

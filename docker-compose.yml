@@ -1,0 +1,22 @@
+# AlbumShelf・NAS图集馆 单容器部署（image 形态，Sprint 8）：环境变量一站式配置
+services:
+  imageshelf:
+    image: jayvzh/nasimageshelf:latest
+    # 自行构建镜像（开发者）：注释上行 image，启用下行 build 块（或直接 make docker-up）
+    # build:
+    #   context: .
+    #   dockerfile: docker/backend/Dockerfile
+    container_name: imageshelf
+    ports:
+      - "${PORT:-8160}:8080"                 # 左侧宿主端口 = 浏览器访问端口，默认 8160；容器内固定 8080 勿改
+    environment:
+      - IMAGE_ROOT=/images                   # 容器内挂载点，勿改（宿主路径在 volumes 左侧改）
+      - DATA_DIR=/data                       # 容器内固定，勿改
+      - PORT=8080                            # 容器内监听端口，勿改
+      - AUTH_USERNAME=${AUTH_USERNAME:-}     # 管理员用户名（示例缺省值 admin123；可空）
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-}     # 管理员密码（示例缺省值 admin12345）：设置后启用登录系统；留空 = 关闭登录（游客模式）
+      - SESSION_MAX_AGE=${SESSION_MAX_AGE:-168h}   # 会话有效期（Go duration 格式）
+    volumes:
+      - ${IMAGE_ROOT:-./images}:/images:ro   # 左侧改为宿主机照片目录（NAS 挂载路径）
+      - ${DATA_DIR:-./data}:/data            # 缩略图缓存与 SQLite 数据（建议持久目录）
+    restart: unless-stopped

@@ -1,0 +1,56 @@
+/* Tailwind CSS v4 入口样式 */
+@import "tailwindcss";
+
+/*
+ * 主题令牌：浅色为默认（:root），.dark 覆盖为深色。
+ * 首屏由 index.html 内联脚本按 localStorage 设置 .dark（默认深色），切换入口在 AppHeader（useTheme）。
+ */
+:root {
+  color-scheme: light;
+  --app-base: #fafafa; /* 页面底色 */
+  --app-panel: #ffffff; /* 面板/卡片 */
+  --app-elevated: #f4f4f5; /* 输入框/按钮底 */
+  --app-elevated-hover: #e4e4e7;
+  --app-line: #e4e4e7; /* 常规分隔线 */
+  --app-line-strong: #d4d4d8; /* 控件边框 */
+  --app-line-hover: #a1a1aa;
+  --app-ink: #18181b; /* 主文本 */
+  --app-body: #3f3f46; /* 常规文本 */
+  --app-muted: #71717a; /* 次要文本 */
+  --app-faint: #a1a1aa; /* 提示文本 */
+  --app-accent-text: #d97706; /* 强调文本（选中/高亮） */
+  --app-scrollbar: #d4d4d8;
+}
+
+.dark {
+  color-scheme: dark;
+  --app-base: #09090b;
+  --app-panel: #18181b;
+  --app-elevated: #27272a;
+  --app-elevated-hover: #3f3f46;
+  --app-line: #27272a;
+  --app-line-strong: #3f3f46;
+  --app-line-hover: #71717a;
+  --app-ink: #fafafa;
+  --app-body: #d4d4d8;
+  --app-muted: #a1a1aa;
+  --app-faint: #71717a;
+  --app-accent-text: #fcd34d;
+  --app-scrollbar: #3f3f46;
+}
+
+/* 映射为主题工具类：bg-base / bg-panel / text-ink / border-line 等，透明度修饰符同样可用 */
+@theme inline {
+  --color-base: var(--app-base);
+  --color-panel: var(--app-panel);
+  --color-elevated: var(--app-elevated);
+  --color-elevated-hover: var(--app-elevated-hover);
+  --color-line: var(--app-line);
+  --color-line-strong: var(--app-line-strong);
+  --color-line-hover: var(--app-line-hover);
+  --color-ink: var(--app-ink);
+  --color-body: var(--app-body);
+  --color-muted: var(--app-muted);
+  --color-faint: var(--app-faint);
+  --color-accent-text: var(--app-accent-text);
+}
