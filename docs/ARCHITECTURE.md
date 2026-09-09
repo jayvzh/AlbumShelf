@@ -210,7 +210,7 @@ frontend/src/
 
 ```
 docker-compose.yml（image 形态，Sprint 8）
-└── imageshelf   （jayvzh/nasimageshelf:latest，后端单容器托管前端静态文件）
+└── imageshelf   （jayvzh/albumshelf:latest，后端单容器托管前端静态文件）
     ├── ports：${PORT:-8160}:8080（左侧宿主端口默认 8160 可改，容器内固定 8080）
     ├── volumes：图片目录只读(:ro) + DATA_DIR 读写
     └── 6 个环境变量透传：IMAGE_ROOT / DATA_DIR / PORT / AUTH_USERNAME / AUTH_PASSWORD / SESSION_MAX_AGE

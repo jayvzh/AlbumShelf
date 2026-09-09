@@ -1,7 +1,7 @@
 # AlbumShelf・NAS图集馆 单容器部署（image 形态，Sprint 8）：环境变量一站式配置
 services:
   imageshelf:
-    image: jayvzh/nasimageshelf:latest
+    image: jayvzh/albumshelf:latest
     # 自行构建镜像（开发者）：注释上行 image，启用下行 build 块（或直接 make docker-up）
     # build:
     #   context: .

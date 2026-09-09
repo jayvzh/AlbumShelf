@@ -43,7 +43,7 @@
 
 ### Docker Compose 部署（推荐）
 
-镜像已发布至 Docker Hub：[`jayvzh/nasimageshelf:latest`](https://hub.docker.com/r/jayvzh/nasimageshelf)。
+镜像已发布至 Docker Hub：[`jayvzh/albumshelf:latest`](https://hub.docker.com/r/jayvzh/albumshelf)。
 
 1. 准备部署目录，创建 `docker-compose.yml`：
 
@@ -100,7 +100,7 @@ docker run -d --name imageshelf \
   -e AUTH_USERNAME=admin123 \
   -e AUTH_PASSWORD=admin12345 \
   --restart unless-stopped \
-  jayvzh/nasimageshelf:latest
+  jayvzh/albumshelf:latest
 ```
 
 ### 登录系统
@@ -114,11 +114,11 @@ docker run -d --name imageshelf \
 ### 自行构建镜像（开发者）
 
 ```bash
-make docker-build    # 构建为 jayvzh/nasimageshelf:latest（arm64 NAS 追加 --platform linux/arm64，见 Makefile）
+make docker-build    # 构建为 jayvzh/albumshelf:latest（arm64 NAS 追加 --platform linux/arm64，见 Makefile）
 make docker-push     # 推送到 Docker Hub（需先 docker login）
 ```
 
-> 仓库内 `docker-compose.yml` 已为镜像形态（`jayvzh/nasimageshelf:latest`）；`make docker-up` 保留用于本地 build 形态验证（见 [docs/SPRINT_PLAN.md](docs/SPRINT_PLAN.md) 与 [docs/SPRINT8_TASK.md](docs/SPRINT8_TASK.md)）。
+> 仓库内 `docker-compose.yml` 已为镜像形态（`jayvzh/albumshelf:latest`）；`make docker-up` 保留用于本地 build 形态验证（见 [docs/SPRINT_PLAN.md](docs/SPRINT_PLAN.md) 与 [docs/SPRINT8_TASK.md](docs/SPRINT8_TASK.md)）。
 
 ### 本地开发
 

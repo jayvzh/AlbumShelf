@@ -3,7 +3,7 @@
 
 .PHONY: help tidy dev-backend dev-frontend build-backend build-frontend test lint docker-build docker-push docker-run docker-up docker-down clean
 
-IMAGE ?= jayvzh/nasimageshelf:latest
+IMAGE ?= jayvzh/albumshelf:latest
 
 help: ## 显示可用命令
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
