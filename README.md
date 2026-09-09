@@ -1,7 +1,7 @@
 # AlbumShelf・NAS图集馆
 
-> 一个面向 NAS / 私有服务器部署的轻量级、自托管、高性能 Web 图片浏览器。
-> 专注于图片浏览、底部缩略图 Filmstrip 导航、高级文件排序（自然排序 / Regex 排序）和双页阅读。
+> 一个面向 NAS / 私有服务器部署的轻量级、自托管、高性能 Web 沉浸式图集阅览器。
+> 专注于图集浏览、底部缩略图 Filmstrip 导航、高级文件排序（自然排序 / Regex 排序）和双页阅读。适合写真集、漫画集、图片集等。
 
 ## 核心特性
 
@@ -50,7 +50,7 @@
 ```yaml
 services:
   imageshelf:
-    image: jayvzh/nasimageshelf:latest
+    image: jayvzh/albumshelf:latest
     container_name: imageshelf
     ports:
       - "${PORT:-8160}:8080"                       # 左侧宿主端口 = 浏览器访问端口，默认 8160；容器内固定 8080
