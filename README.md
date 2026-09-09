@@ -182,4 +182,4 @@ conda run -n imageshelf pip install -r requirements-dev.txt
 
 ## License
 
-MIT
+GPL-3.0

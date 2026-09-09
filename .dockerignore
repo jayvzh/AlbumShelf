@@ -1,0 +1,32 @@
+# 版本控制与工具元数据
+.git
+.trae
+.workbuddy
+.codebuddy
+.pids
+
+# 本地运行产物与用户数据（镜像内不需要）
+data
+images
+logs
+backend/bin
+frontend/dist
+
+# 前端依赖（容器内重新 pnpm install --frozen-lockfile）
+frontend/node_modules
+
+# 环境文件（镜像内由 compose environment 注入）
+.env
+.env.*
+!.env.example
+
+# 文档与辅助（Dockerfile 未 COPY）
+docs
+references
+*.md
+
+# Python 辅助脚本
+pyproject.toml
+requirements-dev.txt
+__pycache__
+*.pyc
