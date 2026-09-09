@@ -6,7 +6,7 @@ import { THUMB_H } from '../../utils/filmstrip'
 
 defineProps<{
   image: ImageFile
-  // 当前查看中的项：高亮边框（amber accent，风格对齐 ViewerToolbar）
+  // 当前查看中的项：高亮边框（主题 accent-focus，深浅主题各配亮/深琥珀，见 styles/main.css）
   active: boolean
   // 显示宽度（px），由 Filmstrip 布局计算得出
   width: number
@@ -19,8 +19,8 @@ const emit = defineEmits<{ select: [] }>()
 <template>
   <button
     type="button"
-    class="block shrink-0 overflow-hidden rounded-md border bg-panel transition-colors"
-    :class="active ? 'border-amber-400/70' : 'border-line hover:border-line-hover'"
+    class="block shrink-0 overflow-hidden rounded-md border bg-panel transition"
+    :class="active ? 'border-accent-focus ring-2 ring-accent-focus/50' : 'border-line hover:border-line-hover'"
     :style="{ height: `${THUMB_H}px`, width: `${width}px` }"
     @click="emit('select')"
   >
