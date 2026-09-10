@@ -140,6 +140,8 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    <!-- 功能栏（收藏夹/快捷访问）与真实目录树之间的分隔线；功能栏整体隐藏时不显示 -->
+    <div v-if="favorites.available || quickAccess.available" class="my-1 border-t border-line" />
     <FolderItem
       :folder="root"
       @select="(path: string) => store.openFolder(path)"
