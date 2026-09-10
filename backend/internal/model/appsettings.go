@@ -75,6 +75,7 @@ type ConfigPayload struct {
 	FolderSettings   []ConfigFolderEntry   `json:"folder_settings"`
 	ProtectedFolders []string              `json:"protected_folders"`
 	Favorites        []ConfigFavoriteEntry `json:"favorites,omitempty"`
+	QuickAccess      []string              `json:"quick_access,omitempty"`
 }
 
 // ConfigImportResult 导入结果：各类导入条数（SPRINT7 §5.7）。
@@ -82,6 +83,7 @@ type ConfigImportResult struct {
 	FolderSettings   int `json:"folder_settings"`
 	ProtectedFolders int `json:"protected_folders"`
 	Favorites        int `json:"favorites"`
+	QuickAccess      int `json:"quick_access"`
 }
 
 // derefString nil 指针映射为空串。

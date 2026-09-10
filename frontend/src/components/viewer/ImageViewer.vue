@@ -8,6 +8,7 @@ import { useSpreadStore } from '../../stores/spread'
 import { useFavoritesStore } from '../../stores/favorites'
 import { useViewer } from '../../composables/useViewer'
 import { useKeyboard } from '../../composables/useKeyboard'
+import { useIsMobile, useMediaQuery } from '../../composables/useMediaQuery'
 import { buildImageUrl } from '../../services/image.service'
 import type { ImageFile } from '../../types/file'
 import ViewerToolbar from './ViewerToolbar.vue'
@@ -30,6 +31,32 @@ const loadError = ref(false)
 const currentFrame = computed(() => viewerStore.currentFrame)
 const scale = computed(() => viewer.scale.value)
 const isFullscreen = computed(() => viewer.isFullscreen.value)
+
+// 手机浏览器"请求桌面版"检测：触屏 primary pointer 且未走移动树（与 BrowserPlatformPage 分流条件一致）
+const touchPointer = useMediaQuery('(pointer: coarse)')
+const isMobileViewport = useIsMobile()
+
+// 当前帧宽高比（w/h；双页取宽度累加 / 最大高、忽略页间距的近似）
+const frameRatio = computed(() => {
+  const sized = (currentFrame.value?.images ?? []).filter(
+    (i) => i.width !== null && i.height !== null && i.height > 0,
+  )
+  if (sized.length === 0) return null
+  const width = sized.reduce((sum, i) => sum + (i.width ?? 0), 0)
+  const height = Math.max(...sized.map((i) => i.height ?? 0))
+  return width / height
+})
+
+// 手机"请求桌面版"时 layout viewport 竖长（如 980×2100），画布区被 flex-1 拉满 100vh 虚高，
+// 竖帧 Fit 后大面积留白。收缩包裹层让高度贴合帧比例：高 = min(可用高, 宽 ÷ 帧比例)。
+// 正常桌面横屏下"宽 ÷ 比例"恒大于可用高（max-height 恒命中），布局零变化；移动树不经此组件。
+// 仅全图模式启用：图片模式的底部缩略图条挂在 BrowserPage 虚高底部，收缩画布无法上移它。
+const canvasWrapStyle = computed(() => {
+  if (viewerStore.mode !== 'full' || isMobileViewport.value || !touchPointer.value) return undefined
+  return frameRatio.value ? { aspectRatio: String(frameRatio.value), maxHeight: '100%' } : undefined
+})
+// 收缩时高度交给 aspect-ratio 推导（height auto）；否则撑满外层（ViewerCanvas 根依赖父级定高）
+const canvasWrapClass = computed(() => (canvasWrapStyle.value ? 'w-full' : 'h-full w-full'))
 
 // 根容器双形态：全图模式全屏覆盖；图片模式填满主内容区（relative 锚定 absolute 子元素）。
 // 注意 fixed 与 relative 不能同挂一个元素（Tailwind 中 .relative 排序在后会覆盖 .fixed，导致覆盖层跌回文档流）
@@ -147,11 +174,13 @@ function zoomAtCenter(factor: number) {
         :variant="viewerStore.variant"
         :mode="viewerStore.mode"
         :filmstrip-visible="viewerStore.filmstripVisible"
+        :mirrored="viewer.mirrored.value"
         @fit="viewer.fit()"
         @scale100="viewer.setScale100()"
         @zoom-in="zoomAtCenter(1.2)"
         @zoom-out="zoomAtCenter(0.8)"
         @rotate="viewer.rotate()"
+        @toggle-mirror="viewer.toggleMirror()"
         @toggle-fullscreen="viewer.toggleFullscreen()"
         @toggle-info="showInfo = !showInfo"
         @toggle-variant="viewerStore.setVariant(viewerStore.variant === 'preview' ? 'original' : 'preview')"
@@ -159,17 +188,19 @@ function zoomAtCenter(factor: number) {
         @go-first="viewerStore.select(0)"
       />
 
-      <!-- 画布区：占满剩余高度（缩略图条在下方占据自然高度） -->
+      <!-- 画布区：占满剩余高度（缩略图条在下方占据自然高度）；触屏桌面树按帧比例收缩 -->
       <div class="relative min-h-0 flex-1">
-        <ViewerCanvas :viewer="viewer">
-          <SpreadFrame
-            v-if="currentFrame"
-            :frame="currentFrame"
-            :variant="viewerStore.variant"
-            @layout="onFrameLayout"
-            @image-error="onFrameImageError"
-          />
-        </ViewerCanvas>
+        <div class="w-full" :class="canvasWrapClass" :style="canvasWrapStyle">
+          <ViewerCanvas :viewer="viewer">
+            <SpreadFrame
+              v-if="currentFrame"
+              :frame="currentFrame"
+              :variant="viewerStore.variant"
+              @layout="onFrameLayout"
+              @image-error="onFrameImageError"
+            />
+          </ViewerCanvas>
+        </div>
 
         <!-- 加载失败提示（独立于画布 transform） -->
         <div
@@ -192,6 +223,23 @@ function zoomAtCenter(factor: number) {
 
       <ImageInfo v-if="showInfo" :images="currentFrame?.images ?? []" />
 
+      <!-- 镜像激活悬浮标志：关闭按钮左侧，点击退出镜像 -->
+      <AppButton
+        v-if="viewer.mirrored.value"
+        variant="icon"
+        title="退出左右镜像"
+        class="absolute right-14 top-3 z-10 opacity-80"
+        @click="viewer.toggleMirror()"
+      >
+        <span class="flex text-accent-text">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m18 7 4 4-4 4" />
+            <path d="m6 7-4 4 4 4" />
+            <path d="M12 3v18" />
+          </svg>
+        </span>
+      </AppButton>
+
       <AppButton
         variant="icon"
         title="关闭 (Esc)"
@@ -203,42 +251,39 @@ function zoomAtCenter(factor: number) {
         </svg>
       </AppButton>
 
-      <!-- 收藏浮动按钮组：✕ 正下方竖排，低调（半透明）不影响浏览；已收藏柔和红。
-           单图帧 1 个按钮；双页帧 2 个并带 L/R 标记（位于心形左侧），按帧内 images 下标映射视觉左/右 -->
+      <!-- 收藏浮动按钮组：✕ 正下方竖排、同垂直中线（每格 h-8 w-8 与 ✕ 同宽）；
+           L/R 徽标绝对定位在心形左侧，不挤偏按钮；
+           低调（半透明）不影响浏览；已收藏柔和红 -->
       <div
         v-if="favorites.available && currentFrame"
         class="absolute right-3 top-14 z-10 flex flex-col items-center gap-1"
       >
-        <div
+        <button
           v-for="(image, i) in currentFrame.images"
           :key="image.path"
-          class="flex items-center gap-0.5 opacity-50 transition-opacity hover:opacity-90"
+          type="button"
+          :title="favorites.has(image.path) ? '取消收藏 (S)' : '收藏 (S)'"
+          class="relative flex h-8 w-8 items-center justify-center opacity-50 transition-opacity hover:opacity-90"
+          :class="favorites.has(image.path) ? 'text-red-400' : 'text-ink'"
+          @click="toggleFrameFavorite(i)"
         >
           <span
             v-if="currentFrame.images.length > 1"
-            class="text-[10px] leading-none"
+            class="absolute right-full mr-0.5 text-[10px] leading-none"
             :class="favorites.has(image.path) ? 'text-red-400' : 'text-ink'"
           >{{ i === 0 ? 'L' : 'R' }}</span>
-          <button
-            type="button"
-            :title="favorites.has(image.path) ? '取消收藏 (S)' : '收藏 (S)'"
-            class="flex h-7 w-7 items-center justify-center"
-            :class="favorites.has(image.path) ? 'text-red-400' : 'text-ink'"
-            @click="toggleFrameFavorite(i)"
+          <svg
+            class="h-[18px] w-[18px]"
+            viewBox="0 0 24 24"
+            :fill="favorites.has(image.path) ? 'currentColor' : 'none'"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <svg
-              class="h-[18px] w-[18px]"
-              viewBox="0 0 24 24"
-              :fill="favorites.has(image.path) ? 'currentColor' : 'none'"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            </svg>
-          </button>
-        </div>
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          </svg>
+        </button>
       </div>
     </div>
   </Teleport>

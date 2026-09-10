@@ -10,6 +10,9 @@ import RegexEditor from './RegexEditor.vue'
 const folderStore = useFolderStore()
 const settingsStore = useSettingsStore()
 
+// compact 模式：顶栏窄宽时按钮文案压缩为 "排序 ↓"，仍保留 title 与完整下拉面板
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+
 const open = ref(false)
 const showRegexEditor = ref(false)
 
@@ -97,7 +100,7 @@ onUnmounted(() => clearTimeout(savedTimer))
       class="flex h-8 shrink-0 items-center gap-1 rounded border border-line-strong bg-panel px-3 text-sm text-body transition-colors hover:border-line-hover"
       @click="toggle"
     >
-      <span>排序：{{ currentModeLabel }} {{ directionArrow }}</span>
+      <span>{{ compact ? `排序 ${directionArrow}` : `排序：${currentModeLabel} ${directionArrow}` }}</span>
     </button>
 
     <!-- 透明全屏遮罩：点击任意处关闭 -->

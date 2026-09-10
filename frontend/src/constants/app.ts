@@ -1,8 +1,14 @@
 // 项目品牌信息（单一数据源）：用户可见的名称 / 作者 / 版本 / 仓库地址 / 图标统一在此维护
 // 引用方：顶栏 AppHeader、登录页 LoginPage、引导页 SetupPage、设置页 ProjectInfoSection、帮助弹窗 HelpModal
 
+/** 产品主名（顶栏窄视口去后缀时显示） */
+export const APP_BASE_NAME = 'AlbumShelf'
+
+/** 产品副标题后缀（顶栏宽裕时随全名显示） */
+export const APP_NAME_SUFFIX = 'NAS图集馆'
+
 /** 产品全名（顶栏、页面标题等用户可见处统一使用） */
-export const APP_NAME = 'AlbumShelf・NAS图集馆'
+export const APP_NAME = `${APP_BASE_NAME}・${APP_NAME_SUFFIX}`
 
 /** 作者署名 */
 export const APP_AUTHOR = 'JayvZh'

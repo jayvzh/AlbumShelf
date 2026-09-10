@@ -11,6 +11,8 @@ export default defineConfig({
     environment: 'node',
   },
   server: {
+    // 监听所有网卡，允许局域网设备（手机/其他电脑）通过本机 IP 访问 dev 服务
+    host: true,
     // 开发/自测固定端口 5160（scripts/dev.sh 与本端口保持一致），
     // 端口被占用时直接报错，避免 Vite 自动顺延导致脚本/文档端口失效
     port: 5160,

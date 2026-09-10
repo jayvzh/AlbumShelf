@@ -1,9 +1,9 @@
-// 主题切换：localStorage 持久化（键 imageshelf:theme，index.html 内联脚本按同一约定防首屏闪烁）
+// 主题切换：localStorage 持久化（键 albumshelf:theme，index.html 内联脚本按同一约定防首屏闪烁）
 import { ref } from 'vue'
 
 type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'imageshelf:theme'
+const STORAGE_KEY = 'albumshelf:theme'
 
 // 初始值与 index.html 内联脚本保持一致：存过 light 即浅色，否则深色
 const theme = ref<Theme>(

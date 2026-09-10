@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// 侧栏：目录树容器；右缘可拖拽调宽（min/max 限制），localStorage 持久化（键 imageshelf:sidebar-width）
+// 侧栏：目录树容器；右缘可拖拽调宽（min/max 限制），localStorage 持久化（键 albumshelf:sidebar-width）
 import { ref } from 'vue'
 import FolderTree from '../folder/FolderTree.vue'
 
-const WIDTH_KEY = 'imageshelf:sidebar-width'
+const WIDTH_KEY = 'albumshelf:sidebar-width'
 const MIN_WIDTH = 180
 const MAX_WIDTH = 480
 const DEFAULT_WIDTH = 256

@@ -19,6 +19,7 @@ func NewRouter(
 	cacheH *handler.CacheHandler,
 	configH *handler.ConfigHandler,
 	favoriteH *handler.FavoriteHandler,
+	quickAccessH *handler.QuickAccessHandler,
 	setupH *handler.SetupHandler,
 	authSvc middleware.AuthService,
 	protectedSvc middleware.ProtectedService,
@@ -64,6 +65,10 @@ func NewRouter(
 		// 收藏（Phase 2：个人数据端点需登录，游客完全隐藏）
 		v1.GET("/favorites", requireAuth, favoriteH.List)
 		v1.POST("/favorites/toggle", requireAuth, favoriteH.Toggle)
+
+		// 快捷访问（个人数据端点需登录，游客完全隐藏）
+		v1.GET("/quick-access", requireAuth, quickAccessH.List)
+		v1.POST("/quick-access/toggle", requireAuth, quickAccessH.Toggle)
 
 		// 目录内容（Sprint 1：子目录 + 图片列表；Sprint 7：游客列表过滤私有条目）
 		v1.GET("/folders", protectedAccess, folderH.List)

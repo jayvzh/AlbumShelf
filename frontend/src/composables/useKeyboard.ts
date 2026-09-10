@@ -23,8 +23,22 @@ const KEY_ACTIONS: Record<string, keyof KeyboardHandlers> = {
   Escape: 'close',
 }
 
+// 焦点在表单输入元素时不接管按键：登录框、设置弹窗、各处输入框内正常打字（含 1/F/R/S 等快捷键字符），
+// 也兜底 HMR 残留监听导致的登录页按键失效
+function isFormTarget(e: KeyboardEvent): boolean {
+  const target = e.target as HTMLElement | null
+  if (!target) return false
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  )
+}
+
 export function useKeyboard(handlers: KeyboardHandlers) {
   function onKeyDown(e: KeyboardEvent) {
+    if (isFormTarget(e)) return
     const action = KEY_ACTIONS[e.code]
     if (!action) return
     e.preventDefault()

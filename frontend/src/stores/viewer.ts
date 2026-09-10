@@ -6,8 +6,8 @@ import { useSpreadStore } from './spread'
 // 视图模式：file 文件网格 / image 嵌入大图（底部保留 Filmstrip）/ full 全屏覆盖（Filmstrip 可显隐）
 export type ViewMode = 'file' | 'image' | 'full'
 
-const MODE_KEY = 'imageshelf:viewmode'
-const FILMSTRIP_KEY = 'imageshelf:filmstrip'
+const MODE_KEY = 'albumshelf:viewmode'
+const FILMSTRIP_KEY = 'albumshelf:filmstrip'
 
 function storedMode(): ViewMode {
   try {

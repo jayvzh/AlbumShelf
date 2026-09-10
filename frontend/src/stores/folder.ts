@@ -6,8 +6,8 @@ import type { FolderItem, FolderResponse } from '../types/folder'
 import type { ImageFile } from '../types/file'
 
 // 会话持久化键（localStorage，约定同 viewer.ts / useTheme）：刷新后恢复当前目录与展开状态
-const CURRENT_PATH_KEY = 'imageshelf:current-path'
-const EXPANDED_KEY = 'imageshelf:expanded-folders'
+const CURRENT_PATH_KEY = 'albumshelf:current-path'
+const EXPANDED_KEY = 'albumshelf:expanded-folders'
 // 收藏夹虚拟视图无真实路径，在 current-path 键中以哨兵值标记
 const FAVORITES_SENTINEL = 'favorites'
 

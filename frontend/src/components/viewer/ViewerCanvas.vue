@@ -11,6 +11,12 @@ const contentStyle = computed(() => ({
   transform: `translate(${props.viewer.panX.value}px, ${props.viewer.panY.value}px) scale(${props.viewer.scale.value}) rotate(${props.viewer.rotation.value}deg)`,
 }))
 
+// 左右镜像：内层独立翻转（w-fit 贴合内容宽，绕自身中心原位翻，bbox 不变），
+// 不进外层 transform 链，pan/zoom/rotate 的锚点与居中数学零改动
+const mirrorStyle = computed(() =>
+  props.viewer.mirrored.value ? { transform: 'scaleX(-1)' } : undefined,
+)
+
 const cursor = computed(() => (props.viewer.dragging.value ? 'grabbing' : 'grab'))
 
 // 滚轮缩放：以鼠标在容器内位置为锚点（clientX - rect，规避子元素 offsetX 坐标系差异）
@@ -54,7 +60,9 @@ onUnmounted(() => {
     :style="{ cursor }"
   >
     <div class="origin-top-left" :style="contentStyle">
-      <slot />
+      <div class="w-fit" :style="mirrorStyle">
+        <slot />
+      </div>
     </div>
   </div>
 </template>

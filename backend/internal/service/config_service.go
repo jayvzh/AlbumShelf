@@ -16,11 +16,12 @@ var ErrConfigInvalid = errors.New("config invalid")
 // ConfigService 配置导入导出业务（SPRINT7 §5.7）。
 // 主题等 localStorage 偏好不参与。
 type ConfigService struct {
-	fs        *filesystem.LocalFilesystem
-	folders   *repository.FolderRepository
-	settings  *repository.SettingsRepository
-	protected *AppSettingsService
-	favorites *repository.FavoriteRepository
+	fs          *filesystem.LocalFilesystem
+	folders     *repository.FolderRepository
+	settings    *repository.SettingsRepository
+	protected   *AppSettingsService
+	favorites   *repository.FavoriteRepository
+	quickAccess *repository.QuickAccessRepository
 }
 
 // NewConfigService 构造 ConfigService。
@@ -30,11 +31,12 @@ func NewConfigService(
 	settings *repository.SettingsRepository,
 	protected *AppSettingsService,
 	favorites *repository.FavoriteRepository,
+	quickAccess *repository.QuickAccessRepository,
 ) *ConfigService {
-	return &ConfigService{fs: fs, folders: folders, settings: settings, protected: protected, favorites: favorites}
+	return &ConfigService{fs: fs, folders: folders, settings: settings, protected: protected, favorites: favorites, quickAccess: quickAccess}
 }
 
-// Export 导出全量配置：folder_settings + protected_folders + favorites。
+// Export 导出全量配置：folder_settings + protected_folders + favorites + quick_access。
 func (s *ConfigService) Export() (*model.ConfigPayload, error) {
 	settings, err := s.settings.ListAll()
 	if err != nil {
@@ -59,12 +61,21 @@ func (s *ConfigService) Export() (*model.ConfigPayload, error) {
 			CreatedAt: f.CreatedAt.Format(time.RFC3339),
 		})
 	}
+	quickAccessPaths, err := s.quickAccess.List()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
+	}
+	qaPaths := make([]string, 0, len(quickAccessPaths))
+	for _, q := range quickAccessPaths {
+		qaPaths = append(qaPaths, q.Path)
+	}
 	return &model.ConfigPayload{
 		Version:          model.ConfigVersion,
 		ExportedAt:       time.Now().Format(time.RFC3339),
 		FolderSettings:   entries,
 		ProtectedFolders: paths,
 		Favorites:        favEntries,
+		QuickAccess:      qaPaths,
 	}, nil
 }
 
@@ -117,6 +128,22 @@ func (s *ConfigService) Import(payload model.ConfigPayload) (*model.ConfigImport
 			return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
 		}
 		result.Favorites++
+	}
+
+	// 快捷访问合并导入（与收藏同口径：仅路径安全校验，不要求目录存在，
+	// 列表惰性清理兜底）。
+	for _, qa := range payload.QuickAccess {
+		if qa == "" {
+			continue
+		}
+		relPath, err := filesystem.ValidatePath(s.fs.Root(), qa)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.quickAccess.Add(relPath); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
+		}
+		result.QuickAccess++
 	}
 	return result, nil
 }

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-// 目录树：递归渲染，节点点击 emit select 由本组件统一调 store action
+// 移动端目录列表行：递归渲染（同桌面 FolderItem 结构，触控优化：行高 44px、箭头热区 44px）
+// 复用 folderStore（children 缓存 / expandedPaths 持久化 / toggleExpanded 按需加载）
+// 行内操作（门控同桌面 FolderItem：登录态、非根目录）：图钉 = 固定到快捷访问；锁 = 设为私有
+// 触控无 hover：未激活图标弱化常驻（opacity-40，按下加强），激活态主色常驻
 import { computed, ref } from 'vue'
 import { useFolderStore } from '../../stores/folder'
 import { useAuthStore } from '../../stores/auth'
@@ -17,67 +20,69 @@ const auth = useAuthStore()
 const protectedStore = useProtectedStore()
 const quickAccessStore = useQuickAccessStore()
 
-// 展开状态收敛到 folder store（localStorage 持久化，刷新后恢复）；根节点恒展开
+// 展开状态收敛到 folder store（与桌面共享持久化）；根节点恒展开
 const expanded = computed(() => props.folder.path === '/' || !!store.expandedPaths[props.folder.path])
-
 const children = computed(() => store.children[props.folder.path])
 // 未加载（undefined）时先显示箭头；已加载且无子目录则隐藏
 const expandable = computed(() => children.value === undefined || children.value.length > 0)
 const active = computed(() => store.currentPath === props.folder.path)
-// 媒体库根（path 固定 /）：库锚点无需折叠，以文件夹图标占位与收藏夹节点对齐
+// 根节点不可折叠，以文件夹图标占位
 const isRoot = computed(() => props.folder.path === '/')
 
-// 私有锁：仅登录态可操作，根目录不可设为私有（后端拒绝）
+// 图钉 / 私有锁门控同桌面：仅登录态可操作，根目录不支持（后端拒绝）
+const canPin = computed(() => auth.enabled && auth.authenticated && !isRoot.value)
+const isPinned = computed(() => quickAccessStore.has(props.folder.path))
 const canLock = computed(() => auth.enabled && auth.authenticated && !isRoot.value)
 const isProtected = computed(() => protectedStore.isProtected(props.folder.path))
 const toggling = computed(() => protectedStore.toggling.has(props.folder.path))
-// 切换失败时短暂提示
+// 切换失败时短暂红字提示
 const flashError = ref(false)
 
-// 快捷访问钉住：与 canLock 同口径（登录态、非根目录）
-const canPin = computed(() => auth.enabled && auth.authenticated && !isRoot.value)
-const isPinned = computed(() => quickAccessStore.has(props.folder.path))
+function flashFailure() {
+  flashError.value = true
+  setTimeout(() => (flashError.value = false), 2000)
+}
 
 async function togglePin() {
   if (!canPin.value) return
   try {
     await quickAccessStore.toggle(props.folder.path)
   } catch {
-    flashError.value = true
-    setTimeout(() => (flashError.value = false), 2000)
+    flashFailure()
   }
 }
 
 async function toggleLock() {
   if (!canLock.value || toggling.value) return
   const ok = await protectedStore.toggle(props.folder.path)
-  if (!ok) {
-    flashError.value = true
-    setTimeout(() => (flashError.value = false), 2000)
-  }
+  if (!ok) flashFailure()
 }
 
-// 展开/折叠走 store action（含按需加载子目录与持久化）
-function toggle() {
-  return store.toggleExpanded(props.folder.path)
+// 点击目录：打开目录并向上转发（页壳据此收起抽屉）
+function onSelect() {
+  store.openFolder(props.folder.path)
+  emit('select', props.folder.path)
 }
 </script>
 
 <template>
   <div>
     <div
-      class="group flex items-center gap-1 rounded px-1 py-1"
-      :class="active ? 'bg-elevated text-ink' : 'text-body hover:bg-panel'"
-      :data-path="folder.path"
+      class="flex items-center"
+      :class="active ? 'bg-elevated text-ink' : 'text-body'"
     >
+      <!-- 前置图标列统一 w-11（44px）：箭头 / 叶子占位 / 根文件夹图标同列居中，
+           与抽屉收藏夹、快捷访问行图标列对齐；叶子也占位避免加载后文字左跳 -->
+      <!-- 展开箭头：44px 独立热区 -->
       <button
         v-if="expandable && !isRoot"
-        class="flex h-4 w-4 shrink-0 items-center justify-center text-faint transition-transform"
-        :class="expanded ? 'rotate-90' : ''"
-        @click.stop="toggle"
+        type="button"
+        class="flex h-11 w-11 shrink-0 items-center justify-center text-faint"
+        @click.stop="store.toggleExpanded(folder.path)"
       >
         <svg
-          class="h-3 w-3"
+          class="h-4 w-4 transition-transform"
+          :class="expanded ? 'rotate-90' : ''"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -88,10 +93,10 @@ function toggle() {
           <path d="m9 18 6-6-6-6" />
         </svg>
       </button>
-      <span v-else-if="!isRoot" class="h-4 w-4 shrink-0" />
-      <span v-else class="flex h-4 w-4 shrink-0 items-center justify-center">
+      <span v-else-if="!isRoot" class="h-11 w-11 shrink-0" />
+      <span v-else class="flex h-11 w-11 shrink-0 items-center justify-center">
         <svg
-          class="h-3.5 w-3.5"
+          class="h-4 w-4"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -102,20 +107,24 @@ function toggle() {
           <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
         </svg>
       </span>
-      <button class="min-w-0 flex-1 truncate text-left text-sm" @click="emit('select', folder.path)">
+      <button
+        type="button"
+        class="h-11 min-w-0 flex-1 truncate text-left text-sm"
+        @click="onSelect"
+      >
         {{ folder.name }}
       </button>
-      <!-- 快捷访问钉住按钮：已钉住实心图钉 + 主文字色常驻；未钉住仅 hover 虚化出现 -->
+      <!-- 图钉：固定到快捷访问。已固定主色常驻，未固定弱化（按下加强） -->
       <button
         v-if="canPin"
         type="button"
-        class="flex h-4 w-4 shrink-0 items-center justify-center transition-opacity hover:text-ink"
-        :class="isPinned ? 'text-ink opacity-90' : 'text-faint opacity-0 group-hover:opacity-60'"
+        class="flex h-11 w-9 shrink-0 items-center justify-center transition-opacity"
+        :class="isPinned ? 'text-ink' : 'text-faint opacity-40 active:opacity-100'"
         :title="isPinned ? '取消固定' : '固定到快捷访问'"
         @click.stop="togglePin"
       >
         <svg
-          class="h-3.5 w-3.5"
+          class="h-4 w-4"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -127,13 +136,13 @@ function toggle() {
           <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" />
         </svg>
       </button>
-      <!-- 私有锁按钮：已加锁空心锁 + 主文字色常驻；未加锁仅 hover 虚化出现；切换中禁用 -->
+      <!-- 私有锁：已加锁主色常驻，未加锁弱化（按下加强）；切换中禁用防竞态 -->
       <button
         v-if="canLock"
         type="button"
-        class="flex h-4 w-4 shrink-0 items-center justify-center transition-opacity hover:text-ink"
+        class="flex h-11 w-9 shrink-0 items-center justify-center transition-opacity"
         :class="[
-          isProtected ? 'text-ink opacity-90' : 'text-faint opacity-0 group-hover:opacity-60',
+          isProtected ? 'text-ink' : 'text-faint opacity-40 active:opacity-100',
           toggling ? 'cursor-not-allowed opacity-50' : '',
         ]"
         :title="isProtected ? '设为公开' : '设为私有'"
@@ -141,7 +150,7 @@ function toggle() {
         @click.stop="toggleLock"
       >
         <svg
-          class="h-3.5 w-3.5"
+          class="h-4 w-4"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -154,11 +163,11 @@ function toggle() {
         </svg>
       </button>
     </div>
-    <!-- 切换失败短暂提示（行内红字） -->
-    <p v-if="flashError" class="px-2 text-xs text-accent-text">操作失败，请重试</p>
-    <!-- 递归渲染子节点：每层缩进 6px，左缘引导线填充缩进空白，select 事件逐层向上转发 -->
-    <div v-show="expanded" class="ml-1.5 border-l border-line">
-      <FolderItem
+    <!-- 切换失败短暂红字提示（不展开为弹层，避免抽屉跳动过强） -->
+    <p v-if="flashError" class="pl-3 text-xs leading-5 text-accent-text">操作失败，请重试</p>
+    <!-- 递归渲染子节点：缩进 + 引导线，select 逐层向上转发 -->
+    <div v-show="expanded" class="ml-3 border-l border-line">
+      <MobileFolderList
         v-for="child in children ?? []"
         :key="child.path"
         :folder="child"

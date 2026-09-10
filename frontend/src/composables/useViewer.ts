@@ -1,14 +1,19 @@
 import { ref, onUnmounted } from 'vue'
 import { useZoom } from './useZoom'
-import { usePan } from './usePan'
+import { usePan, type TapDetail } from './usePan'
 
 // 顺时针旋转角度（度）
 export type Rotation = 0 | 90 | 180 | 270
 
+export interface UseViewerOptions {
+  // tap 手势回调（透传 usePan，仅 touch/pen 触发；不传则无 tap 行为）
+  onTap?: (detail: TapDetail) => void
+}
+
 // Viewer UI 运行态组合：Zoom / Pan / Fit / 100% / Rotate / Fullscreen（不进 Pinia store）
-export function useViewer() {
+export function useViewer(options: UseViewerOptions = {}) {
   const zoom = useZoom()
-  const pan = usePan(zoom)
+  const pan = usePan(zoom, { onTap: options.onTap })
 
   // 画布容器（ViewerCanvas 外层 div，经 :ref 注入）
   const containerRef = ref<HTMLElement | null>(null)
@@ -20,6 +25,9 @@ export function useViewer() {
 
   // 顺时针旋转角度（运行态，换帧时由 ImageViewer 调 resetRotation 归零）
   const rotation = ref<Rotation>(0)
+
+  // 左右镜像（运行态，仅 CSS 翻转显示不改源文件；页面刷新即重置，换帧保留）
+  const mirrored = ref(false)
 
   function setContentSize(width: number, height: number) {
     contentWidth.value = width
@@ -83,6 +91,11 @@ export function useViewer() {
     fit()
   }
 
+  // 切换左右镜像（显示翻转，bbox 不变，无需重算 Fit）
+  function toggleMirror() {
+    mirrored.value = !mirrored.value
+  }
+
   // 重置旋转并重新 Fit（换帧时调用；未旋转时跳过避免多余布局）
   function resetRotation() {
     if (rotation.value === 0) return
@@ -132,10 +145,12 @@ export function useViewer() {
     contentWidth,
     contentHeight,
     rotation,
+    mirrored,
     setContentSize,
     fit,
     setScale100,
     rotate,
+    toggleMirror,
     resetRotation,
     reset,
     toggleFullscreen,

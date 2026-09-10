@@ -21,6 +21,25 @@ PID_DIR="$PROJECT_ROOT/.pids"
 # ── 初始化（日志目录和 PID 目录自动创建）──
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
+# ── 加载根目录 .env（可配置 AUTH_USERNAME/AUTH_PASSWORD/SESSION_MAX_AGE 等）──
+# 规则：仅解析 KEY=VALUE 行（忽略空行与 # 注释），去除值两侧成对引号；
+#       已显式设置的同名环境变量优先（如 AUTH_PASSWORD= ./scripts/dev.sh restart 可临时强制游客模式）
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        case "$key" in
+            ''|\#*|\ *) continue ;;
+        esac
+        key="$(echo "$key" | tr -d ' \t')"
+        case " $value" in
+            *'"') value="${value%\"}"; value="${value#\"}" ;;
+            *"'" ) value="${value%\'}"; value="${value#\'}" ;;
+        esac
+        if [ -n "$key" ] && [ -z "${!key+x}" ]; then
+            export "$key=$value"
+        fi
+    done < "$PROJECT_ROOT/.env"
+fi
+
 # ── 本地开发默认环境（仓库内 images/ 与 data/；已显式设置则沿用）──
 export IMAGE_ROOT="${IMAGE_ROOT:-$PROJECT_ROOT/images}"
 export DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"
@@ -376,8 +395,9 @@ case "${1:-}" in
         echo "  前端: ${FRONTEND_PORT} (Vite dev server，strictPort，/api 代理到后端)"
         echo ""
         echo "示例:"
-        echo "  ./scripts/dev.sh start       # 启动前后端开发模式（默认游客模式）"
-        echo "  AUTH_USERNAME=admin AUTH_PASSWORD=secret ./scripts/dev.sh restart  # 登录模式"
+        echo "  ./scripts/dev.sh start       # 启动前后端开发模式（认证模式由 .env / 环境变量决定）"
+        echo "  AUTH_USERNAME=admin AUTH_PASSWORD=secret ./scripts/dev.sh restart  # 临时登录模式"
+        echo "  # 持久配置：编辑根目录 .env（AUTH_PASSWORD 留空即游客模式），restart 生效"
         echo "  ./scripts/dev.sh restart     # 改代码后强制清理端口并重启"
         echo "  ./scripts/dev.sh status      # 查看状态"
         echo "  ./scripts/dev.sh logs        # 查看合并日志"

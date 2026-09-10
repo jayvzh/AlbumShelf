@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS protected_folders (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     path       TEXT NOT NULL UNIQUE,
     created_at DATETIME NOT NULL
+);
+CREATE TABLE IF NOT EXISTS quick_access (
+    id         INTEGER PRIMARY KEY,
+    path       TEXT UNIQUE NOT NULL,
+    created_at DATETIME
 )`)
 	if err != nil {
 		return fmt.Errorf("初始化 schema 失败: %w", err)

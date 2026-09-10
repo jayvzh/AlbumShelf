@@ -9,6 +9,7 @@ import { useSpreadStore } from '../stores/spread'
 import type { ImageFile } from '../types/file'
 import AppLayout from '../components/layout/AppLayout.vue'
 import EmptyState from '../components/common/EmptyState.vue'
+import BrandEmptyState from '../components/common/BrandEmptyState.vue'
 import Filmstrip from '../components/filmstrip/Filmstrip.vue'
 import ImageViewer from '../components/viewer/ImageViewer.vue'
 import { formatFileSize } from '../utils/format'
@@ -101,6 +102,12 @@ watch(
           </div>
 
           <EmptyState v-else-if="displayError" :message="displayError" />
+
+          <!-- 根目录无图片：品牌化空状态（插画 + 简介 + 上手提示）；子目录/收藏夹保持轻量提示 -->
+          <BrandEmptyState
+            v-else-if="displayImages.length === 0 && !store.favoritesView && store.currentPath === '/'"
+            platform="desktop"
+          />
 
           <EmptyState
             v-else-if="displayImages.length === 0"

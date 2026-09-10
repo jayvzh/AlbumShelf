@@ -2,18 +2,18 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useFavoritesStore } from '../stores/favorites'
 import { fetchSetupStatus } from '../services/setup.service'
-import BrowserPage from '../pages/BrowserPage.vue'
-import SettingsPage from '../pages/SettingsPage.vue'
+import BrowserPlatformPage from '../pages/BrowserPlatformPage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import SetupPage from '../pages/SetupPage.vue'
 
-// 四条路由：/ 浏览、/settings 设置、/login 登录（SPRINT7_TASK.md §5.9）、
-// /setup 初始化引导（SPRINT8_TASK.md §5.4）
+// 三条路由：/ 浏览（平台分流：桌面 BrowserPage / 移动 MobileBrowserPage）、
+// /login 登录（SPRINT7_TASK.md §5.9）、
+// /setup 初始化引导（SPRINT8_TASK.md §5.4）；
+// 设置为账户菜单内的弹窗（SettingsModal），不再占用路由
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'browser', component: BrowserPage },
-    { path: '/settings', name: 'settings', component: SettingsPage },
+    { path: '/', name: 'browser', component: BrowserPlatformPage },
     { path: '/login', name: 'login', component: LoginPage, meta: { public: true } },
     { path: '/setup', name: 'setup', component: SetupPage, meta: { public: true } },
     // 未匹配兜底回浏览页
@@ -46,17 +46,9 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (!auth.loaded) await auth.fetchStatus()
 
-  // 登录系统关闭：全部放行（单用户场景管理端点开放），仅 /login 回浏览页
-  if (!auth.enabled) {
-    return to.path === '/login' ? { path: '/' } : true
-  }
-  // 设置页需登录：未登录跳登录页并携带回跳地址
-  if (to.path === '/settings' && !auth.authenticated) {
-    return { path: '/login', query: { redirect: to.fullPath } }
-  }
-
   // —— favorites 门控联动（PRD F010）——
-  // 可用（auth 关闭或已登录）时拉取一次收藏；不可用（退出登录后）清空本地状态。
+  // 可用（auth 关闭的游客模式 或 已登录）时拉取一次收藏；不可用（退出登录后）清空本地状态。
+  // 必须在下方「游客模式提前返回」之前执行：游客模式 auth.enabled=false 同样需要加载收藏。
   // 不 await，避免阻塞导航；收藏夹视图打开时以 loaded/loading 防重复请求。
   const favorites = useFavoritesStore()
   if (favorites.available) {
@@ -64,6 +56,12 @@ router.beforeEach(async (to) => {
   } else if (favorites.loaded) {
     favorites.clear()
   }
+
+  // 登录系统关闭：全部放行（单用户场景管理端点开放），仅 /login 回浏览页
+  if (!auth.enabled) {
+    return to.path === '/login' ? { path: '/' } : true
+  }
+
   return true
 })
 

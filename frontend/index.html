@@ -2,14 +2,17 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>AlbumShelf・NAS图集馆</title>
     <script>
       // 首屏防闪烁：挂载前按 localStorage 设置主题 class（默认深色，useTheme 持久化切换）
       ;(function () {
         try {
-          if (localStorage.getItem('imageshelf:theme') !== 'light') {
+          if (localStorage.getItem('albumshelf:theme') !== 'light') {
             document.documentElement.classList.add('dark')
           }
         } catch (e) {

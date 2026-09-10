@@ -71,7 +71,11 @@ func New(cfg *config.Config) *App {
 	favoriteSvc := service.NewFavoriteService(fs, favoriteRepo)
 	favoriteH := handler.NewFavoriteHandler(favoriteSvc)
 
-	configSvc := service.NewConfigService(fs, folderRepo, settingsRepo, appSettingsSvc, favoriteRepo)
+	quickAccessRepo := repository.NewQuickAccessRepository(db)
+	quickAccessSvc := service.NewQuickAccessService(fs, quickAccessRepo)
+	quickAccessH := handler.NewQuickAccessHandler(quickAccessSvc)
+
+	configSvc := service.NewConfigService(fs, folderRepo, settingsRepo, appSettingsSvc, favoriteRepo, quickAccessRepo)
 	configH := handler.NewConfigHandler(configSvc)
 
 	authH := handler.NewAuthHandler(authSvc, cfg.AuthUsername, cfg.ImageRoot, cfg.DataDir)
@@ -82,7 +86,7 @@ func New(cfg *config.Config) *App {
 	a := &App{
 		cfg: cfg,
 		router: api.NewRouter(folderH, imageH, thumbnailH, settingsH,
-			authH, appSettingsH, cacheH, configH, favoriteH, setupH, authSvc, appSettingsSvc),
+			authH, appSettingsH, cacheH, configH, favoriteH, quickAccessH, setupH, authSvc, appSettingsSvc),
 		db: db,
 	}
 	a.registerStatic()

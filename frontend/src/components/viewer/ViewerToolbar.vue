@@ -18,8 +18,10 @@ withDefaults(
     mode: ViewMode
     // 全图模式底部缩略图条是否可见（仅影响显隐按钮提示文案）
     filmstripVisible?: boolean
+    // 左右镜像是否开启（运行态）
+    mirrored?: boolean
   }>(),
-  { isFullscreen: false, showInfo: false, filmstripVisible: false },
+  { isFullscreen: false, showInfo: false, filmstripVisible: false, mirrored: false },
 )
 
 const emit = defineEmits<{
@@ -29,6 +31,8 @@ const emit = defineEmits<{
   'zoom-out': []
   // 顺时针旋转 90°（useViewer 运行态）
   rotate: []
+  // 切换左右镜像
+  'toggle-mirror': []
   'toggle-fullscreen': []
   'toggle-info': []
   // 切换预览图 / 原图
@@ -39,7 +43,7 @@ const emit = defineEmits<{
   'go-first': []
 }>()
 
-const EXPANDED_KEY = 'imageshelf:toolbar-expanded'
+const EXPANDED_KEY = 'albumshelf:toolbar-expanded'
 
 function storedExpanded(): boolean {
   try {
@@ -107,6 +111,20 @@ function toggleExpanded() {
       </AppButton>
       <AppButton title="适应窗口 (0)" @click="emit('fit')">Fit</AppButton>
       <AppButton title="原始尺寸 (1)" @click="emit('scale100')">1:1</AppButton>
+      <!-- 镜像：开启时图标琥珀高亮（着色放插槽内，规避 AppButton 内建 text-body 的覆盖顺序问题） -->
+      <AppButton
+        variant="icon"
+        :title="mirrored ? '退出左右镜像' : '左右镜像'"
+        @click="emit('toggle-mirror')"
+      >
+        <span class="flex" :class="mirrored ? 'text-accent-text' : ''">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m18 7 4 4-4 4" />
+            <path d="m6 7-4 4 4 4" />
+            <path d="M12 3v18" />
+          </svg>
+        </span>
+      </AppButton>
       <AppButton variant="icon" title="顺时针旋转 90° (R)" @click="emit('rotate')">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12a9 9 0 1 1-2.64-6.36" />
