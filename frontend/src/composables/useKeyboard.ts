@@ -39,6 +39,9 @@ function isFormTarget(e: KeyboardEvent): boolean {
 export function useKeyboard(handlers: KeyboardHandlers) {
   function onKeyDown(e: KeyboardEvent) {
     if (isFormTarget(e)) return
+    // 带功能键的组合键不接管：放行 Ctrl/Cmd/Alt+R/F/S/0/1 等浏览器快捷键，
+    // 避免 Ctrl+Shift+R 误旋转、Ctrl+S 误收藏等（Ctrl+Shift+R 已被 ctrlKey 覆盖）
+    if (e.ctrlKey || e.metaKey || e.altKey) return
     const action = KEY_ACTIONS[e.code]
     if (!action) return
     e.preventDefault()

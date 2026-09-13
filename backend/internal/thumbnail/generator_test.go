@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // writeTestJPEG / writeTestPNG 用标准库在临时目录生成指定尺寸的纯色源图。

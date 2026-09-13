@@ -6,11 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/service"
 )
 
 // ThumbnailHandler 处理缩略图 API。

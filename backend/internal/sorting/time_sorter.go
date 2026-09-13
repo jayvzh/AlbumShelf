@@ -3,7 +3,7 @@ package sorting
 import (
 	"sort"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // timeSorter 同一 sorter 处理两种 mode（SORT_ENGINE §3）：

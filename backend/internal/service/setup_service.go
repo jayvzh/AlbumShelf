@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // SetupService 初始化检测业务（SPRINT8 §5.3）：只读探测 IMAGE_ROOT 可用性，

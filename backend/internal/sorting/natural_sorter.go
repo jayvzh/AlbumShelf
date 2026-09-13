@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // NaturalCompare 自然排序比较：把名字切为文本段/数字段序列逐段比较，

@@ -334,7 +334,7 @@ GET /api/v1/auth/status
     "authenticated": true,
     "username": "admin",
     "image_root": "/data/images",
-    "data_dir": "/data/imageshelf"
+    "data_dir": "/data/albumshelf"
   }
 }
 ```

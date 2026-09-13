@@ -3,7 +3,7 @@ package response
 import (
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // FolderData GET /api/v1/folders 成功响应（API.md §3.2）。

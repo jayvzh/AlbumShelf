@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
-	"imageshelf/backend/internal/thumbnail"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // newTestCacheEnv 构造含「正常缓存 + 两类孤儿」的缓存环境：

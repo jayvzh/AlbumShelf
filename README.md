@@ -49,9 +49,9 @@
 
 ```yaml
 services:
-  imageshelf:
+  albumshelf:
     image: jayvzh/albumshelf:latest
-    container_name: imageshelf
+    container_name: albumshelf
     ports:
       - "${PORT:-8160}:8080"                       # 左侧宿主端口 = 浏览器访问端口，默认 8160；容器内固定 8080
     environment:
@@ -82,7 +82,7 @@ services:
 
 ```bash
 docker compose up -d
-docker compose logs -f imageshelf    # 查看日志
+docker compose logs -f albumshelf    # 查看日志
 ```
 
 浏览器打开 `http://<NAS_IP>:8160`（或你配置的 `PORT`）。
@@ -93,7 +93,7 @@ docker compose logs -f imageshelf    # 查看日志
 ### Docker Run（单命令替代）
 
 ```bash
-docker run -d --name imageshelf \
+docker run -d --name albumshelf \
   -p 8160:8080 \
   -v /path/to/your/photos:/images:ro \
   -v /path/to/data:/data \
@@ -145,17 +145,8 @@ cd frontend && pnpm install && pnpm dev    # Vite dev server 固定 :5160
 | Go | 1.24+ | 后端编译 |
 | Node | nvm node 22+ | 前端工具链 |
 | pnpm | 11（`npm i -g pnpm@11`） | 前端依赖管理 |
-| Python | conda 环境 `imageshelf`（3.12） | 辅助脚本/联调，依赖见 `requirements-dev.txt` |
 | Docker | Docker + Compose v2 | 容器构建与部署 |
 | libvips | 系统级（`libvips-dev`） | 后端缩略图/预览图生成（Sprint 3 起需要） |
-
-Python 依赖安装与工具：
-
-```bash
-conda run -n imageshelf pip install -r requirements-dev.txt
-# 格式化/静态检查：ruff format . && ruff check .
-# 测试：pytest
-```
 
 构建本地产物用 `scripts/build.sh`（对应 Makefile 的 `build-backend` / `build-frontend`）。
 

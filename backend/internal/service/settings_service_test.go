@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // newTestSettingsService 构造「临时图片目录（含 /Comics 子目录）+ 临时数据库」的 SettingsService。

@@ -8,9 +8,9 @@ import (
 	"sort"
 	"testing"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // newConfigServicesForFS 在既有图片根上以独立临时数据库组装 config 相关服务。

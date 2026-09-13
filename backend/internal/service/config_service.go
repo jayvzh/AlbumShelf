@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // ErrConfigInvalid 配置文件非法（version 不符等），handler 映射 400 CONFIG_INVALID。

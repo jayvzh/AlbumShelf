@@ -9,7 +9,7 @@ package sorting
 import (
 	"errors"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // ErrInvalidRegex 正则编译失败（响应码 INVALID_REGEX 的领域来源，SORT_ENGINE §5.5）。

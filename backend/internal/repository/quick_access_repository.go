@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // QuickAccessRepository quick_access 表访问（快捷访问：钉住的目录）。

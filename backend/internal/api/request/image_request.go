@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // ImageGetRequest 图片读取请求参数。variant 一律回退原图（Sprint 2）。

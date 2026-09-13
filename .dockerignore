@@ -24,9 +24,3 @@ frontend/node_modules
 docs
 references
 *.md
-
-# Python 辅助脚本
-pyproject.toml
-requirements-dev.txt
-__pycache__
-*.pyc

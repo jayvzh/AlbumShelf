@@ -12,13 +12,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api"
-	"imageshelf/backend/internal/api/handler"
-	"imageshelf/backend/internal/auth"
-	"imageshelf/backend/internal/config"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/repository"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api"
+	"albumshelf/backend/internal/api/handler"
+	"albumshelf/backend/internal/auth"
+	"albumshelf/backend/internal/config"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/repository"
+	"albumshelf/backend/internal/service"
 )
 
 // App 持有应用级依赖。

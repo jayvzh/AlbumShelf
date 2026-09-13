@@ -6,7 +6,7 @@ import (
 
 	vips "github.com/davidbyttow/govips/v2/vips"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // Generate 按变体从源图生成 JPEG：

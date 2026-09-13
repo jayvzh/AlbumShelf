@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // imageExts 支持的图片扩展名（统一小写比较）。

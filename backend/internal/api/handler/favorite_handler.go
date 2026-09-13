@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/service"
 )
 
 // FavoriteHandler 处理收藏 API（PRD F010 Phase 2）。

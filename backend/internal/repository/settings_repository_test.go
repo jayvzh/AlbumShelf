@@ -3,7 +3,7 @@ package repository
 import (
 	"testing"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // Upsert 插入后按 path JOIN folders 可读回已保存设置。

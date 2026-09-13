@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/service"
 )
 
 // CacheHandler 处理缓存管理 API（SPRINT7 §5.6）。

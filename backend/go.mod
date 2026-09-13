@@ -1,4 +1,4 @@
-module imageshelf/backend
+module albumshelf/backend
 
 go 1.25.0
 

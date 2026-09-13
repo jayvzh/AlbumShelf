@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 func mkImages(names []string) []model.Image {

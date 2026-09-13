@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // ImageCacheRepository image_cache 表（缩略图/预览图缓存索引）的访问封装。

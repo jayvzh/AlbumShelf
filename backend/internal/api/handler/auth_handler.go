@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/auth"
-	"imageshelf/backend/internal/middleware"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/auth"
+	"albumshelf/backend/internal/middleware"
 )
 
 // AuthHandler 处理认证 API（SPRINT7 §5.8）。

@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/auth"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/auth"
 )
 
 // AuthenticatedKey gin.Context 中会话状态的 key。

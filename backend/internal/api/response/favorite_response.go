@@ -1,7 +1,7 @@
 package response
 
 import (
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // FavoriteData GET /api/v1/favorites 成功响应（API.md §3.x）。

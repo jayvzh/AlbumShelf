@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/repository"
 )
 
 // newTestAppSettingsEnv 构造「含 /Private、/Private/sub、/PrivateX 的临时图片目录 + 临时数据库」。

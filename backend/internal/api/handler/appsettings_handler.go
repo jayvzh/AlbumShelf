@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/service"
 )
 
 // AppSettingsHandler 处理私有目录 API（SPRINT7 §5.5）。

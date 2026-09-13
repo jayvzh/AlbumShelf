@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // filenameSorter 按文件名字典序排序（Go string 逐字节比较，大小写敏感）。

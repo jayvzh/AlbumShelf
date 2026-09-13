@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // 同输入两次调用必须返回同一路径（键稳定）。

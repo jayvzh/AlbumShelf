@@ -3,8 +3,8 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/handler"
-	"imageshelf/backend/internal/middleware"
+	"albumshelf/backend/internal/api/handler"
+	"albumshelf/backend/internal/middleware"
 )
 
 // NewRouter 构建 API 路由。只负责注册路由，不含业务逻辑。

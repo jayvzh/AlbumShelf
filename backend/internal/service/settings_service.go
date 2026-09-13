@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // ErrDatabase 数据库操作失败 sentinel，handler 用 errors.Is 映射 DATABASE_ERROR。

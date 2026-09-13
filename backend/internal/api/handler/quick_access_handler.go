@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/service"
 )
 
 // QuickAccessHandler 处理快捷访问 API（目录钉住）。

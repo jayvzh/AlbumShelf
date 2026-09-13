@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/repository"
 )
 
 // QuickAccessService 快捷访问业务：钉住目录的列表与切换。

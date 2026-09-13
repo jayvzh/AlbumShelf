@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/repository"
 )
 
 // ctx 后台上下文（自用单管理员场景，无请求级取消需求）。

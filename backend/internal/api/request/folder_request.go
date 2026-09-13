@@ -3,7 +3,7 @@ package request
 import (
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // FolderListRequest 目录列表请求参数。

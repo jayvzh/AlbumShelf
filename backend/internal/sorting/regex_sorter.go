@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"sort"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // PreviewMatch 预览中的单个匹配结果（API.md §3.7）

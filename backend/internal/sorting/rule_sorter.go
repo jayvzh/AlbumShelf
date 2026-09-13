@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // compareByRules 多规则链式比较（SORT_ENGINE §5.2）：逐规则比较捕获组内容，

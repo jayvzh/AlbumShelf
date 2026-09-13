@@ -6,13 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/request"
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/middleware"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/service"
-	"imageshelf/backend/internal/sorting"
+	"albumshelf/backend/internal/api/request"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/middleware"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/service"
+	"albumshelf/backend/internal/sorting"
 )
 
 // AuthChecker 目录 Handler 依赖的认证探测接口（由 *auth.Service 实现）。

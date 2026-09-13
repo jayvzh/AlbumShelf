@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // FavoriteService 收藏业务（PRD F010 Phase 2）：全局图片收藏的列表与切换。

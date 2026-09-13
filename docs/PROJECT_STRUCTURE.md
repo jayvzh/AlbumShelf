@@ -14,7 +14,7 @@ AlbumShelf/
 ├── frontend/              # Vue 前端
 ├── docker/                # Docker 构建文件
 ├── scripts/               # 开发/维护脚本
-├── data/                  # 本地运行数据（cache/thumbs + cache/previews + imageshelf.db）
+├── data/                  # 本地运行数据（cache/thumbs + cache/previews + albumshelf.db）
 ├── .env.example
 ├── docker-compose.yml
 ├── Makefile
@@ -221,7 +221,7 @@ AlbumShelf/
 │   ├── cache/
 │   │   ├── thumbs/        # 缩略图持久缓存（200px）
 │   │   └── previews/      # 预览图持久缓存（长边 2560px）
-│   └── imageshelf.db
+│   └── albumshelf.db
 │
 ├── .env.example
 ├── docker-compose.yml

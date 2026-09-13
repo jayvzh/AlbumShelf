@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // SessionRepository sessions 表访问（SPRINT7 §5.3）。

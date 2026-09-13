@@ -11,10 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/api/response"
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/repository"
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/api/response"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/repository"
+	"albumshelf/backend/internal/service"
 )
 
 // newTestSettingsHandler 构造「临时图片目录 + 临时数据库」的 SettingsHandler（参考 settings_service_test.go）。

@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
-	"imageshelf/backend/internal/thumbnail"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // ThumbnailService 缩略图/预览图业务编排：

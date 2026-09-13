@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // SettingsRepository folder_settings 表访问（DATA_MODEL §2.2）。

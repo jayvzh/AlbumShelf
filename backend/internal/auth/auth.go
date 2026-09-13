@@ -11,8 +11,8 @@ import (
 	"errors"
 	"time"
 
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // ctx 后台上下文（自用单管理员场景，无请求级取消需求）。

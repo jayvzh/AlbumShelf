@@ -14,8 +14,8 @@ import (
 	"os"
 	"time"
 
-	"imageshelf/backend/internal/app"
-	"imageshelf/backend/internal/config"
+	"albumshelf/backend/internal/app"
+	"albumshelf/backend/internal/config"
 )
 
 func main() {

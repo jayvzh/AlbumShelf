@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
 )
 
 // newTestService 构造真实 SQLite 会话存储的认证服务（SPRINT7 §5.2 测试要求）。

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // 缓存键与失效语义（与 DATA_MODEL §3 判定规则一致）：

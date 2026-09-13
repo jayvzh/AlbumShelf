@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
 )
 
 // VariantOriginal 原图变体标识（X-Image-Variant 响应头取值之一）。

@@ -119,7 +119,7 @@ chown -R 0:0 /path/to/your/photos</pre>
 
       <!-- 底部排查提示 -->
       <div class="mt-6 border-t border-line pt-4 text-xs text-muted">
-        <p>仍无法解决？查看容器日志定位问题：<code class="rounded bg-elevated px-1.5 py-0.5">docker compose logs imageshelf</code></p>
+        <p>仍无法解决？查看容器日志定位问题：<code class="rounded bg-elevated px-1.5 py-0.5">docker compose logs albumshelf</code></p>
         <p class="mt-1">修改 <code class="rounded bg-elevated px-1.5 py-0.5">.env</code> 或 docker-compose.yml 后，需 <code class="rounded bg-elevated px-1.5 py-0.5">docker compose up -d</code> 重建容器生效。</p>
       </div>
     </div>

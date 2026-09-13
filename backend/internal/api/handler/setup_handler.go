@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"imageshelf/backend/internal/service"
+	"albumshelf/backend/internal/service"
 )
 
 // SetupHandler 处理初始化检测 API（SPRINT8 §5.3）。

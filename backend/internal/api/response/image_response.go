@@ -3,7 +3,7 @@ package response
 import (
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // Resolution 像素尺寸对象；解析失败时 width/height 为 null。

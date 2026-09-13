@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // ProtectedFolderRepository protected_folders 表访问（SPRINT7 §5.3）。

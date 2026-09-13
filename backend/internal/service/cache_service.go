@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"imageshelf/backend/internal/repository"
+	"albumshelf/backend/internal/repository"
 )
 
 // 缓存管理（SPRINT7 §5.6）：统计与清理均不加锁，自用场景容忍与缩略图生成

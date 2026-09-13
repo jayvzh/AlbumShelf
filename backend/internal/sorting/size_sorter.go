@@ -3,7 +3,7 @@ package sorting
 import (
 	"sort"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // sizeSorter 按文件大小排序，小→大为 asc。

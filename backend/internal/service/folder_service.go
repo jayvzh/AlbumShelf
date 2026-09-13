@@ -6,10 +6,10 @@ import (
 	"log"
 	"sort"
 
-	"imageshelf/backend/internal/filesystem"
-	"imageshelf/backend/internal/model"
-	"imageshelf/backend/internal/repository"
-	"imageshelf/backend/internal/sorting"
+	"albumshelf/backend/internal/filesystem"
+	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/repository"
+	"albumshelf/backend/internal/sorting"
 )
 
 // GuestGuard 游客目录过滤守卫（SPRINT7 §5.5）：auth enabled 且游客时，

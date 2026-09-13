@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // regexOptions 构造 regex 排序选项的测试助手。

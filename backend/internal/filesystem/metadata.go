@@ -13,7 +13,7 @@ import (
 
 	_ "golang.org/x/image/webp" // 注册 webp 解码器（标准库无 webp）
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // readImageMetadata 读取单个图片文件元信息：Stat 得 Size/ModifiedAt/CreatedAt，

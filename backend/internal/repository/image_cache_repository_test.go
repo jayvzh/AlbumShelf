@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // 同一 cache_path 重复 Upsert 不产生重复行，且字段被覆盖更新。

@@ -1,4 +1,4 @@
-// Package repository 提供 SQLite 持久化访问（DATA_DIR/imageshelf.db）。
+// Package repository 提供 SQLite 持久化访问（DATA_DIR/albumshelf.db）。
 // repository 层只返回包装后的普通 error（fmt.Errorf + %w），
 // API 层错误码语义映射（如 DATABASE_ERROR）由后续 service/handler 完成。
 package repository
@@ -13,7 +13,7 @@ import (
 )
 
 // dbName 数据库文件名，固定位于 DATA_DIR 下。
-const dbName = "imageshelf.db"
+const dbName = "albumshelf.db"
 
 // Open 打开（必要时创建）DATA_DIR 下的 SQLite 数据库并确保 schema 存在。
 // 开启 WAL 支持读写并发；当前仅建本任务范围的 image_cache 表（DATA_MODEL §2.5），

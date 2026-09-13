@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"imageshelf/backend/internal/model"
+	"albumshelf/backend/internal/model"
 )
 
 // Filesystem 文件访问统一接口。Sprint 1 定义目录列举，
