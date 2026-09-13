@@ -28,6 +28,38 @@ const showInfo = ref(false)
 const loading = ref(false)
 const loadError = ref(false)
 
+// 全屏与模式联动路径标记：图片模式进入全屏时自动切全图，退出全屏后自动回到图片模式；
+// 全图模式进入全屏仅切换浏览器全屏，退出后保持全图
+const enteredFullFromImage = ref(false)
+
+async function handleToggleFullscreen() {
+  if (viewer.isFullscreen.value) {
+    await viewer.toggleFullscreen()
+    return
+  }
+  if (viewerStore.mode === 'image') {
+    enteredFullFromImage.value = true
+    viewerStore.setMode('full')
+  }
+  // 以 requestFullscreen 的 promise 结果为准（此时 fullscreenchange 事件可能尚未派发，不能读 isFullscreen）
+  const entered = await viewer.toggleFullscreen()
+  if (enteredFullFromImage.value && !entered) {
+    enteredFullFromImage.value = false
+    viewerStore.setMode('image')
+  }
+}
+
+// 退出全屏时回退联动进入的全图模式（用户已手动点还原则模式已是 image，跳过）
+watch(
+  () => viewer.isFullscreen.value,
+  (fullscreen) => {
+    if (!fullscreen && enteredFullFromImage.value) {
+      enteredFullFromImage.value = false
+      if (viewerStore.mode === 'full') viewerStore.setMode('image')
+    }
+  },
+)
+
 const currentFrame = computed(() => viewerStore.currentFrame)
 const scale = computed(() => viewer.scale.value)
 const isFullscreen = computed(() => viewer.isFullscreen.value)
@@ -91,7 +123,7 @@ async function toggleFrameFavorite(index: number) {
 const keyboard = useKeyboard({
   previous: () => viewerStore.previous(),
   next: () => viewerStore.next(),
-  toggleFullscreen: () => viewer.toggleFullscreen(),
+  toggleFullscreen: () => void handleToggleFullscreen(),
   fit: () => viewer.fit(),
   setScale100: () => viewer.setScale100(),
   rotate: () => viewer.rotate(),
@@ -181,7 +213,7 @@ function zoomAtCenter(factor: number) {
         @zoom-out="zoomAtCenter(0.8)"
         @rotate="viewer.rotate()"
         @toggle-mirror="viewer.toggleMirror()"
-        @toggle-fullscreen="viewer.toggleFullscreen()"
+        @toggle-fullscreen="handleToggleFullscreen()"
         @toggle-info="showInfo = !showInfo"
         @toggle-variant="viewerStore.setVariant(viewerStore.variant === 'preview' ? 'original' : 'preview')"
         @toggle-filmstrip="viewerStore.toggleFilmstrip()"
@@ -223,33 +255,61 @@ function zoomAtCenter(factor: number) {
 
       <ImageInfo v-if="showInfo" :images="currentFrame?.images ?? []" />
 
-      <!-- 镜像激活悬浮标志：关闭按钮左侧，点击退出镜像 -->
-      <AppButton
-        v-if="viewer.mirrored.value"
-        variant="icon"
-        title="退出左右镜像"
-        class="absolute right-14 top-3 z-10 opacity-80"
-        @click="viewer.toggleMirror()"
-      >
-        <span class="flex text-accent-text">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m18 7 4 4-4 4" />
-            <path d="m6 7-4 4 4 4" />
-            <path d="M12 3v18" />
-          </svg>
-        </span>
-      </AppButton>
+      <!-- 右上角控件行：镜像激活标志（最左）→ 最大化/还原 → 关闭 X；镜像标志仅激活时出现，flex 自动避让不重叠 -->
+      <div class="absolute right-3 top-3 z-10 flex items-center gap-2">
+        <!-- 镜像激活悬浮标志：点击退出镜像 -->
+        <AppButton
+          v-if="viewer.mirrored.value"
+          variant="icon"
+          title="退出左右镜像"
+          class="opacity-80"
+          @click="viewer.toggleMirror()"
+        >
+          <span class="flex text-accent-text">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m18 7 4 4-4 4" />
+              <path d="m6 7-4 4 4 4" />
+              <path d="M12 3v18" />
+            </svg>
+          </span>
+        </AppButton>
 
-      <AppButton
-        variant="icon"
-        title="关闭 (Esc)"
-        class="absolute right-3 top-3 z-10 opacity-80"
-        @click="viewerStore.stepBack()"
-      >
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </AppButton>
+        <!-- 最大化/还原：图片模式 → 全图覆盖；全图模式 → 回到嵌入图片（与工具栏 API 全屏相互独立） -->
+        <AppButton
+          v-if="viewerStore.mode !== 'full'"
+          variant="icon"
+          title="最大化"
+          class="opacity-80"
+          @click="viewerStore.setMode('full')"
+        >
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="1.5" />
+          </svg>
+        </AppButton>
+        <AppButton
+          v-else
+          variant="icon"
+          title="还原"
+          class="opacity-80"
+          @click="viewerStore.setMode('image')"
+        >
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3H5a2 2 0 0 0-2 2v10" />
+            <rect x="9" y="9" width="12" height="12" rx="1.5" />
+          </svg>
+        </AppButton>
+
+        <AppButton
+          variant="icon"
+          title="关闭 (Esc)"
+          class="opacity-80"
+          @click="viewerStore.stepBack()"
+        >
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </AppButton>
+      </div>
 
       <!-- 收藏浮动按钮组：✕ 正下方竖排、同垂直中线（每格 h-8 w-8 与 ✕ 同宽）；
            L/R 徽标绝对定位在心形左侧，不挤偏按钮；

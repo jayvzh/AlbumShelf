@@ -100,8 +100,8 @@ async function logout() {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
       </svg>
     </button>
-    <!-- 视图模式切换：文件 / 图片 / 全图（localStorage 持久化；全图模式被覆盖层遮挡，工具栏内有同款控件） -->
-    <ViewModeSwitch :compact="iconifyControls" />
+    <!-- 视图模式切换（图标式）：文件列表 / 图片预览；全图入口在查看器右上角最大化按钮 -->
+    <ViewModeSwitch />
     <!-- 只看收藏：目录内筛选已收藏图片（文件网格与图片/全图模式均适用；收藏夹虚拟视图内不显示） -->
     <button
       v-if="favorites.available && !store.favoritesView"

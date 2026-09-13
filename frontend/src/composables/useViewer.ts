@@ -108,27 +108,54 @@ export function useViewer(options: UseViewerOptions = {}) {
     fit()
   }
 
+  // 全屏元素读取 / 状态变更事件：兼容 iOS Safari 等仅支持 webkit 前缀的内核
+  function getFullscreenElement(): Element | null {
+    return document.fullscreenElement
+      ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
+      ?? null
+  }
+
   // 网页全屏（等效 F11）：对 documentElement 请求，页面布局不变（顶栏/目录树/缩略图条保留），
-  // 仅浏览器窗口全屏；全图模式覆盖层本就 fixed inset-0 铺满，同样适用
-  async function toggleFullscreen() {
+  // 仅浏览器窗口全屏；全图模式覆盖层本就 fixed inset-0 铺满，同样适用。
+  // 返回是否成功进入/保持全屏（请求被拒绝时为 false，调用方据此回滚联动状态）
+  async function toggleFullscreen(): Promise<boolean> {
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      } else {
-        await document.documentElement.requestFullscreen()
+      if (getFullscreenElement()) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+        } else {
+          await (document as unknown as { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.()
+        }
+        return false
       }
+      const el = document.documentElement as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void
+      }
+      if (el.requestFullscreen) {
+        await el.requestFullscreen()
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen()
+      } else {
+        // 当前环境完全不支持全屏 API
+        return false
+      }
+      return true
     } catch {
       // 全屏请求失败（如非用户手势）静默忽略
+      return false
     }
   }
 
   function onFullscreenChange() {
-    isFullscreen.value = document.fullscreenElement != null
+    isFullscreen.value = getFullscreenElement() != null
   }
 
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  // iOS Safari / 旧 WebKit 仅派发前缀事件
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange)
   onUnmounted(() => {
     document.removeEventListener('fullscreenchange', onFullscreenChange)
+    document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
   })
 
   return {

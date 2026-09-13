@@ -148,16 +148,17 @@ function toggleReading() {
       <button
         type="button"
         title="账户"
-        class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-colors"
+        class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border text-base transition-colors"
         :class="auth.authenticated
-          ? 'border-line-strong bg-panel font-semibold text-accent-text'
+          ? 'border-line-strong bg-panel font-semibold'
           : 'border-line-strong bg-panel text-body'"
+        :style="auth.authenticated ? { color: 'var(--app-accent-text)' } : undefined"
         @click="accountOpen = !accountOpen"
       >
         <span v-if="auth.authenticated">{{ initial }}</span>
         <svg
           v-else
-          class="h-5 w-5"
+          class="h-[19px] w-[19px]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

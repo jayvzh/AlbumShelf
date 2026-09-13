@@ -9,7 +9,7 @@ const emit = defineEmits<{ close: [] }>()
 // 快捷键表（与 composables/useKeyboard.ts 键位一致）
 const shortcuts: { keys: string[]; desc: string }[] = [
   { keys: ['←', '→'], desc: '上一帧 / 下一帧（空格同下一帧）' },
-  { keys: ['F'], desc: '进入 / 退出全屏（等效 F11，保留页面布局）' },
+  { keys: ['F'], desc: '进入 / 退出浏览器全屏（图片模式下自动切换全图，退出后回到图片模式）' },
   { keys: ['0'], desc: '适应窗口大小（Fit）' },
   { keys: ['1'], desc: '按原始尺寸显示（100%）' },
   { keys: ['R'], desc: '顺时针旋转 90°' },
@@ -65,7 +65,7 @@ const kbdClass =
           <ul class="list-disc space-y-1 pl-5 text-sm leading-relaxed text-body">
             <li><span class="text-ink">文件</span>：卡片网格，点击卡片或底部缩略图进入大图浏览</li>
             <li><span class="text-ink">图片</span>：原地嵌入大图，底部保留缩略图条</li>
-            <li><span class="text-ink">全图</span>：全屏覆盖浏览，底部缩略图条可在工具栏显隐</li>
+            <li><span class="text-ink">全图</span>：全屏覆盖浏览，入口为图片模式右上角最大化按钮（进入后原位变为还原按钮）；底部缩略图条可在工具栏显隐</li>
             <li>
               图片 / 全图模式下按 <kbd :class="kbdClass">Esc</kbd> 逐级返回上一级；
               全屏时按 <kbd :class="kbdClass">Esc</kbd> 直接退出全屏

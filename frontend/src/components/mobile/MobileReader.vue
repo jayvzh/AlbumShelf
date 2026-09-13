@@ -188,6 +188,12 @@ function closeReader() {
   viewerStore.setMode('file')
 }
 
+// 全屏切换：仅浏览器 API 全屏（无模式联动），点击后重置 3s 自动隐藏计时
+function onToggleFullscreen() {
+  viewer.toggleFullscreen()
+  showControls()
+}
+
 // 关闭阅读器时复位菜单与信息面板（组件常驻，状态跨开关保留）
 watch(
   () => viewerStore.isOpen,
@@ -229,7 +235,7 @@ watch(
           v-show="uiVisible"
           class="absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/70 to-transparent px-2 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2"
         >
-          <div class="relative flex items-center gap-2">
+          <div class="relative flex items-center gap-1">
             <button
               type="button"
               class="flex h-11 w-11 items-center justify-center text-white/90 active:bg-white/10"
@@ -252,11 +258,11 @@ watch(
             <div class="flex-1 text-center text-sm tabular-nums text-white/90">
               {{ viewerStore.currentFrameIndex + 1 }} / {{ frameCount }}
             </div>
-            <!-- 镜像激活悬浮标志：叉号左侧，点击退出镜像 -->
+            <!-- 镜像激活悬浮标志：全屏按钮左侧，点击退出镜像（-ml-2 与全屏/X 收紧为成组图标） -->
             <button
               v-if="viewer.mirrored.value"
               type="button"
-              class="flex h-11 w-11 items-center justify-center text-amber-400 active:bg-white/10"
+              class="-ml-2 flex h-11 w-11 items-center justify-center text-amber-400 active:bg-white/10"
               aria-label="退出左右镜像"
               @click="viewer.toggleMirror()"
             >
@@ -266,48 +272,67 @@ watch(
                 <path d="M12 3v18" />
               </svg>
             </button>
+            <!-- 全屏 / 退出全屏（浏览器 API 全屏，与桌面工具栏同义；移动端无最大化概念）。
+                 -ml-2 与镜像/X 收紧为成组图标（镜像隐藏时仅拉近与页码区间距，不影响布局） -->
             <button
               type="button"
-              class="flex h-11 w-11 items-center justify-center text-white/90 active:bg-white/10"
-              aria-label="关闭阅读器"
-              @click="closeReader"
+              class="-ml-2 flex h-11 w-11 items-center justify-center text-white/90 active:bg-white/10"
+              :aria-label="viewer.isFullscreen.value ? '退出全屏' : '全屏'"
+              @click="onToggleFullscreen"
             >
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
+              <svg v-if="!viewer.isFullscreen.value" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+              <svg v-else class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3" />
               </svg>
             </button>
-            <!-- 收藏按钮：✕ 正下方同垂直线（同宽 w-11），配色低调仿桌面（未收藏 white/50，已收藏柔和红） -->
-            <button
-              v-if="favorites.available"
-              type="button"
-              class="absolute right-0 top-full mt-1 flex h-11 w-11 items-center justify-center active:bg-white/10"
-              :class="isFavorited ? 'text-red-400' : 'text-white/50'"
-              :aria-label="isFavorited ? '取消收藏' : '收藏'"
-              @click="toggleFavoriteCurrent"
-            >
-              <svg
-                class="h-5 w-5"
-                :fill="isFavorited ? 'currentColor' : 'none'"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                viewBox="0 0 24 24"
+            <!-- 关闭 + 收纳入同一锚点容器：心形以 X 的 44px 盒为参照绝对定位，
+                 无论前面按钮的负边距如何收紧，二者右缘/中心始终同垂直线 -->
+            <div class="relative -ml-2">
+              <button
+                type="button"
+                class="flex h-11 w-11 items-center justify-center text-white/90 active:bg-white/10"
+                aria-label="关闭阅读器"
+                @click="closeReader"
               >
-                <path
-                  d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
-                />
-              </svg>
-            </button>
+                <svg
+                  class="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+              <!-- 收藏按钮：✕ 正下方同垂直线（同宽 w-11），配色低调仿桌面（未收藏 white/50，已收藏柔和红） -->
+              <button
+                v-if="favorites.available"
+                type="button"
+                class="absolute right-0 top-full mt-1 flex h-11 w-11 items-center justify-center active:bg-white/10"
+                :class="isFavorited ? 'text-red-400' : 'text-white/50'"
+                :aria-label="isFavorited ? '取消收藏' : '收藏'"
+                @click="toggleFavoriteCurrent"
+              >
+                <svg
+                  class="h-5 w-5"
+                  :fill="isFavorited ? 'currentColor' : 'none'"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
           <!-- 垂直透明控件条：信息 / 镜像 / 旋转（-ml-1 使图标列与面包按钮对齐；再次点面包即收起） -->
           <div
