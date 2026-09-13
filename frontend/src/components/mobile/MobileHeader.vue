@@ -1,5 +1,7 @@
 <script setup lang="ts">
-// 移动端顶栏（h-12 + safe-area）：汉堡（目录抽屉）+ 品牌（三级收纳）+ 弱化目录名 + 排序 + 网格/阅读切换 + 账户头像 + 设置入口
+// 移动端顶栏（min-h-12 + safe-area）：汉堡（目录抽屉）+ 品牌（三级收纳）+ 弱化目录名 + 排序 + 网格/阅读切换 + 账户头像 + 设置入口
+// 注意必须用 min-h-12 而非 h-12：小程序 WebView 沉浸式下 safe-area-inset-top 可达 47~59px（计入 border-box），
+// 固定 48px 会导致 44px 按钮溢出 header 下边界；min-h 允许顶栏随安全区撑高
 // 移动端舍弃：主题切换 / 只看收藏 / 双页阅读设置 / 帮助 / 全路径文本（退出登录走账户头像菜单）
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -72,7 +74,7 @@ function toggleReading() {
 
 <template>
   <header
-    class="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-panel pl-1 pr-2 pt-[env(safe-area-inset-top)]"
+    class="flex min-h-12 shrink-0 items-center gap-1 border-b border-line bg-panel pl-1 pr-2 pt-[env(safe-area-inset-top)]"
   >
     <!-- 汉堡：打开目录抽屉 -->
     <button
