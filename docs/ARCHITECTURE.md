@@ -78,6 +78,7 @@ Thumbnail（缩略图）  → Filmstrip（200px）
 
 - **Viewer 默认加载 Preview，禁止默认加载原图**；原图仅在用户点击"加载原图"时按需加载
 - Preview 与 Thumbnail 共用 govips 生成管线，**Preview 提前进 MVP**（Sprint 3，与 Thumbnail 同 Sprint 实现）
+- Preview 采用**渐进式 JPEG**（libvips `Interlace`，SOF2 码流）：弱网/大图首屏边传边显；Thumbnail 保持 baseline（小图渐进编码体积反增）
 - 翻页/重访时缩略图与预览图优先命中缓存（见 §4.3）；原图永远不自动加载，仅在用户点击"加载原图"时按需请求（重复点击同一张直接命中浏览器缓存）
 
 ### 4.3 双端缓存策略（服务器持久缓存 + 浏览器 HTTP 缓存）

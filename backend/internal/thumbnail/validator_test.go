@@ -13,14 +13,26 @@ func TestIsFreshNotExist(t *testing.T) {
 	}
 }
 
-// 缓存文件存在 → 新鲜。
+// 缓存文件存在且以 JPEG EOI 标记结尾 → 新鲜。
 func TestIsFreshExist(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "cached.jpg")
-	if err := os.WriteFile(p, []byte{0xFF, 0xD8}, 0o644); err != nil {
+	// SOI + EOI：最小的完整 JPEG 码流形态
+	if err := os.WriteFile(p, []byte{0xFF, 0xD8, 0xFF, 0xD9}, 0o644); err != nil {
 		t.Fatalf("写入测试文件失败: %v", err)
 	}
 	if !IsFresh(p) {
-		t.Fatal("存在的文件应判定为新鲜")
+		t.Fatal("以 EOI 结尾的文件应判定为新鲜")
+	}
+}
+
+// 缓存文件被截断（无 EOI 尾标记）→ 不新鲜，触发重新生成自愈。
+func TestIsFreshTruncated(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "truncated.jpg")
+	if err := os.WriteFile(p, []byte{0xFF, 0xD8}, 0o644); err != nil {
+		t.Fatalf("写入测试文件失败: %v", err)
+	}
+	if IsFresh(p) {
+		t.Fatal("缺少 EOI 尾标记的文件应判定为不新鲜")
 	}
 }
 

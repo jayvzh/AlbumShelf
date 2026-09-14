@@ -66,10 +66,15 @@ export const useFolderStore = defineStore('folder', {
     expandedPaths: storedExpanded(),
   }),
   actions: {
-    // 打开目录：更新当前目录内容并缓存其子目录；opts 携带排序参数时透传（API.md §3.2）；同时退出收藏夹虚拟视图
+    // 打开目录：更新当前目录内容并缓存其子目录；opts 携带排序参数时透传（API.md §3.2）；同时退出收藏夹虚拟视图。
+    // 乐观切换：请求前即更新路径并清空内容，UI 立即进入「加载中…」而非停留旧目录；失败回滚路径。
     async openFolder(path: string, opts?: FolderQueryOptions) {
       this.favoritesView = false
       this.loading = true
+      const prevPath = this.currentPath
+      this.currentPath = path
+      this.folders = []
+      this.images = []
       try {
         const res: FolderResponse = await getFolder(path, opts)
         this.currentPath = res.path
@@ -80,6 +85,7 @@ export const useFolderStore = defineStore('folder', {
         this.error = null
       } catch (e) {
         this.error = e instanceof ApiError ? `${e.code}: ${e.message}` : String(e)
+        this.currentPath = prevPath
       } finally {
         this.loading = false
       }

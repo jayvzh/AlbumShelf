@@ -32,10 +32,13 @@ func Generate(sourcePath string, variant string, sizeBucket int) ([]byte, int, i
 	}
 	defer img.Close()
 
-	// StripMetadata 去除 EXIF 等元数据，减小缓存体积
+	// StripMetadata 去除 EXIF 等元数据，减小缓存体积；
+	// preview 启用渐进式编码（浏览器边传边显，弱网首屏更快）；
+	// thumb 为 200~500px 小图，渐进编码体积反增，保持 baseline。
 	jpegBytes, _, err := img.ExportJpeg(&vips.JpegExportParams{
 		StripMetadata: true,
 		Quality:       model.JPEGQuality,
+		Interlace:     variant == model.VariantPreview,
 	})
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("导出 JPEG 失败 %s: %w", sourcePath, err)

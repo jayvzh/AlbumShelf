@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // 移动端封面网格：minmax(110px,1fr) 自适应列数（375px ≈ 3 列）
 // 卡片 = 方形缩略图 + 文件名 + 尺寸·大小；收藏角标 36px 热区（移动端无 hover，常显）
+import { ref } from 'vue'
 import { useFavoritesStore } from '../../stores/favorites'
-import { buildThumbnailUrl } from '../../services/image.service'
+import { buildThumbnailUrl, withCacheBust } from '../../services/image.service'
 import { formatFileSize } from '../../utils/format'
 import type { ImageFile } from '../../types/file'
 
@@ -13,6 +14,21 @@ defineProps<{
 const emit = defineEmits<{ open: [index: number] }>()
 
 const favorites = useFavoritesStore()
+
+// 加载失败：以 cache-bust URL 一次性重试（绕过可能已损坏的浏览器缓存条目），仍失败保持原样。
+// 以基础 URL 为键：原图变更后 v 参数变化，旧重试记录自然失效
+const bustedSrcs = ref<Record<string, string>>({})
+
+function thumbSrc(image: ImageFile): string {
+  const base = buildThumbnailUrl(image, 300)
+  return bustedSrcs.value[base] ?? base
+}
+
+function onImgError(image: ImageFile) {
+  const base = buildThumbnailUrl(image, 300)
+  if (bustedSrcs.value[base]) return
+  bustedSrcs.value[base] = withCacheBust(base)
+}
 
 // 收藏/取消收藏：失败已回滚，静默（同桌面）
 async function toggleFavorite(image: ImageFile) {
@@ -33,11 +49,12 @@ async function toggleFavorite(image: ImageFile) {
       @click="emit('open', index)"
     >
       <img
-        :src="buildThumbnailUrl(image, 300)"
+        :src="thumbSrc(image)"
         :alt="image.name"
         loading="lazy"
         decoding="async"
         class="aspect-square w-full bg-black/20 object-cover"
+        @error="onImgError(image)"
       />
       <!-- 收藏角标：36px 热区，压暗圆底保证深浅封面下可见 -->
       <button

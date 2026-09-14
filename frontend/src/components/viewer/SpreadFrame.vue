@@ -6,7 +6,7 @@ import { ref, watch } from 'vue'
 import type { ImageFile } from '../../types/file'
 import type { SpreadFrame } from '../../types/spread'
 import { SPREAD_FRAME_GAP } from '../../utils/spread'
-import { buildImageUrl } from '../../services/image.service'
+import { buildImageUrl, withCacheBust } from '../../services/image.service'
 
 const props = defineProps<{
   frame: SpreadFrame
@@ -25,13 +25,16 @@ const emit = defineEmits<{
 const naturalSizes = ref<Array<{ width: number; height: number } | null>>([])
 // 等高布局结果；null 表示尚未就绪（img 先以自然尺寸显示，就绪后统一收缩到 baseH）
 const frameSize = ref<{ width: number; height: number } | null>(null)
+// 一次性 cache-bust 重试的 src 覆盖（按 frame.images 下标）
+const srcOverrides = ref<Record<number, string>>({})
 
-// 换帧 / 切换预览原图：重置尺寸追踪，等待重新 onload
+// 换帧 / 切换预览原图：重置尺寸追踪与重试状态，等待重新 onload
 watch(
   () => [props.frame, props.variant] as const,
   () => {
     naturalSizes.value = props.frame.images.map(() => null)
     frameSize.value = null
+    srcOverrides.value = {}
   },
   { immediate: true },
 )
@@ -54,10 +57,15 @@ function onImgLoad(index: number, e: Event) {
   settleSize(index, img.naturalWidth, img.naturalHeight)
 }
 
-// 加载失败：用目录元数据兜底（异常占位比 400×600），保证 layout 链不断
+// 加载失败：先以 cache-bust URL 一次性重试（绕过可能已损坏的浏览器缓存条目），
+// 仍失败才用目录元数据兜底（异常占位比 400×600），保证 layout 链不断
 function onImgError(index: number) {
   const image = props.frame.images[index]
   if (!image) return
+  if (!srcOverrides.value[index]) {
+    srcOverrides.value[index] = withCacheBust(buildImageUrl(image, props.variant))
+    return
+  }
   emit('imageError', image)
   settleSize(index, image.width ?? 400, image.height ?? 600)
 }
@@ -68,7 +76,7 @@ function onImgError(index: number) {
     <img
       v-for="(image, i) in frame.images"
       :key="image.path"
-      :src="buildImageUrl(image, variant)"
+      :src="srcOverrides[i] ?? buildImageUrl(image, variant)"
       :alt="image.name"
       class="block max-w-none"
       draggable="false"

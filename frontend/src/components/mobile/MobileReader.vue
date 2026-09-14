@@ -11,7 +11,7 @@ import { useViewer } from '../../composables/useViewer'
 import { useKeyboard } from '../../composables/useKeyboard'
 import type { TapDetail } from '../../composables/usePan'
 import { buildSpreadFrames, DEFAULT_SPREAD_OPTIONS } from '../../utils/spread'
-import { buildImageUrl } from '../../services/image.service'
+import { cancelAll, syncViewerPreload } from '../../utils/imagePreloader'
 import { formatFileSize } from '../../utils/format'
 import ViewerCanvas from '../viewer/ViewerCanvas.vue'
 import SpreadFrame from '../viewer/SpreadFrame.vue'
@@ -66,6 +66,7 @@ function toggleControls() {
 }
 onUnmounted(() => {
   if (uiTimer) clearTimeout(uiTimer)
+  cancelAll()
 })
 
 // 翻页：落位帧索引 + 回预览档 + 唤起控件
@@ -124,11 +125,17 @@ const keyboard = useKeyboard({
 
 watch(
   () => viewerStore.isOpen,
-  (open) => (open ? keyboard.bind() : keyboard.unbind()),
+  (open) => {
+    if (open) keyboard.bind()
+    else {
+      keyboard.unbind()
+      cancelAll()
+    }
+  },
   { immediate: true },
 )
 
-// 换帧 / 换档：标记加载中、重置旋转、预载下一帧（照搬桌面 ImageViewer）
+// 换帧 / 换档：标记加载中、重置旋转、同步预取（相邻帧抢占置顶 + 其余帧空闲预热）
 const loading = ref(true)
 const loadError = ref(false)
 
@@ -138,18 +145,10 @@ watch(
     loading.value = true
     loadError.value = false
     viewer.resetRotation()
-    preloadNextFrame()
+    syncViewerPreload(frames.value, viewerStore.currentFrameIndex)
   },
   { immediate: true },
 )
-
-function preloadNextFrame() {
-  const next = frames.value[viewerStore.currentFrameIndex + 1]
-  if (!next) return
-  for (const image of next.images) {
-    new Image().src = buildImageUrl(image, 'preview')
-  }
-}
 
 // SpreadFrame 完成等高布局 → 上报内容尺寸 + Fit + 结束加载（同桌面）
 function onFrameLayout(size: { width: number; height: number }) {

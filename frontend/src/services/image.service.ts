@@ -21,6 +21,11 @@ export function buildThumbnailUrl(image: ImageFile, width = 300): string {
   return `/api/v1/thumbnail?path=${encodeURIComponent(image.path)}&width=${width}&v=${versionOf(image)}`
 }
 
+// onError 一次性 cache-bust：追加时间戳参数，强制绕过可能已损坏的浏览器缓存条目重新请求
+export function withCacheBust(url: string): string {
+  return `${url}&cb=${Date.now()}`
+}
+
 // 获取图片元信息
 export function getImageInfo(path: string): Promise<ImageInfo> {
   return request<ImageInfo>(`/image/info?path=${encodeURIComponent(path)}`)

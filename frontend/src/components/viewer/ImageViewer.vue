@@ -9,7 +9,7 @@ import { useFavoritesStore } from '../../stores/favorites'
 import { useViewer } from '../../composables/useViewer'
 import { useKeyboard } from '../../composables/useKeyboard'
 import { useIsMobile, useMediaQuery } from '../../composables/useMediaQuery'
-import { buildImageUrl } from '../../services/image.service'
+import { cancelAll, syncViewerPreload } from '../../utils/imagePreloader'
 import type { ImageFile } from '../../types/file'
 import ViewerToolbar from './ViewerToolbar.vue'
 import ViewerCanvas from './ViewerCanvas.vue'
@@ -131,26 +131,27 @@ const keyboard = useKeyboard({
   toggleFavorite: () => toggleFrameFavorite(0),
 })
 
-// immediate 覆盖持久化模式刷新首屏（isOpen 初始即 true 的场景）
+// immediate 覆盖持久化模式刷新首屏（isOpen 初始即 true 的场景）；关闭时取消在途预取
 watch(
   () => viewerStore.isOpen,
-  (open) => (open ? keyboard.bind() : keyboard.unbind()),
+  (open) => {
+    if (open) {
+      keyboard.bind()
+    } else {
+      keyboard.unbind()
+      cancelAll()
+    }
+  },
   { immediate: true },
 )
 // 卸载时必须解绑：onKeyDown 是 useKeyboard 每次调用创建的闭包（引用不同），
 // HMR 或 v-if/v-else 重挂后旧监听残留会导致一次 Esc 触发两次 stepBack（全图→文件跳级）
-onUnmounted(() => keyboard.unbind())
+onUnmounted(() => {
+  keyboard.unbind()
+  cancelAll()
+})
 
-// 预载下一帧全部图片（preview），提升翻帧流畅度（不预载原图）
-function preloadNextFrame() {
-  const next = spreadStore.frames[viewerStore.currentFrameIndex + 1]
-  if (!next) return
-  for (const image of next.images) {
-    new Image().src = buildImageUrl(image, 'preview')
-  }
-}
-
-// 换帧（帧内图片集合变化）或切换预览/原图（variant 变化）时：Loading、重置旋转、预载下一帧；
+// 换帧（帧内图片集合变化）或切换预览/原图（variant 变化）时：Loading、重置旋转、同步预取；
 // 布局尺寸由 SpreadFrame 全部 onload 后上报（onFrameLayout）统一 Fit
 watch(
   () =>
@@ -160,7 +161,7 @@ watch(
     loading.value = true
     loadError.value = false
     viewer.resetRotation()
-    preloadNextFrame()
+    syncViewerPreload(spreadStore.frames, viewerStore.currentFrameIndex)
   },
 )
 
@@ -255,8 +256,10 @@ function zoomAtCenter(factor: number) {
 
       <ImageInfo v-if="showInfo" :images="currentFrame?.images ?? []" />
 
-      <!-- 右上角控件行：镜像激活标志（最左）→ 最大化/还原 → 关闭 X；镜像标志仅激活时出现，flex 自动避让不重叠 -->
-      <div class="absolute right-3 top-3 z-10 flex items-center gap-2">
+      <!-- 右上角控件行：镜像激活标志（最左）→ 最大化/还原 → 关闭 X；镜像标志仅激活时出现，flex 自动避让不重叠。
+           top 取 17px：左侧控件条 pill 高 42px（p-1+边框+h-8），本组裸按钮高 32px，
+           同顶时右侧中心偏高 5px；17px 使两侧按钮中心同在 y≈33 的水平线上 -->
+      <div class="absolute right-3 top-[17px] z-10 flex items-center gap-2">
         <!-- 镜像激活悬浮标志：点击退出镜像 -->
         <AppButton
           v-if="viewer.mirrored.value"
@@ -313,10 +316,11 @@ function zoomAtCenter(factor: number) {
 
       <!-- 收藏浮动按钮组：✕ 正下方竖排、同垂直中线（每格 h-8 w-8 与 ✕ 同宽）；
            L/R 徽标绝对定位在心形左侧，不挤偏按钮；
+           top 61px 跟随右上角行（top 17 + 高 32 + 12px 间距）；
            低调（半透明）不影响浏览；已收藏柔和红 -->
       <div
         v-if="favorites.available && currentFrame"
-        class="absolute right-3 top-14 z-10 flex flex-col items-center gap-1"
+        class="absolute right-3 top-[61px] z-10 flex flex-col items-center gap-1"
       >
         <button
           v-for="(image, i) in currentFrame.images"
