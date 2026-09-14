@@ -49,8 +49,14 @@ function pump() {
 
 async function run(task: Task) {
   try {
-    // 完整读入响应体，确保资源完整落入 HTTP 缓存
-    const res = await fetch(task.url, { signal: task.controller.signal })
+    // 完整读入响应体，确保资源完整落入 HTTP 缓存。
+    // WARMUP 带低优先级请求头：服务端生成调度器把它排在用户正在查看的图之后；
+    // 同源自定义头不改变 URL，<img> 后续同 URL 命中缓存不受影响
+    const res = await fetch(task.url, {
+      signal: task.controller.signal,
+      headers:
+        task.priority === PRELOAD_PRIORITY.WARMUP ? { 'X-Load-Priority': 'low' } : undefined,
+    })
     await res.arrayBuffer()
   } catch {
     /* 取消（被抢占 / 整体取消）或网络失败：静默 */

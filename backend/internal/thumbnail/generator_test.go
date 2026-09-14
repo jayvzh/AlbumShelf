@@ -94,7 +94,7 @@ func TestGenerateNoUpscale(t *testing.T) {
 	}
 }
 
-// 3000×2000 PNG → preview(2560)：输出 JPEG 且长边 ≤2560、比例保持 3:2。
+// 3000×2000 PNG → preview(1920)：输出 JPEG 且长边 ≤1920、比例保持 3:2。
 func TestGeneratePreviewLongEdge(t *testing.T) {
 	src := writeTestPNG(t, t.TempDir(), 3000, 2000)
 	data, w, h, err := Generate(src, model.VariantPreview, 0)

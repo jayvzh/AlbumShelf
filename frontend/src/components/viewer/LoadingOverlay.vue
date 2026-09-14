@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 加载遮罩：切换图片时避免白屏闪烁（docs/UI_DESIGN.md §6）
+// 加载指示器：透明背景不遮挡画布——渐进式 JPEG 预览图传输中边收边显（模糊→清晰），
+// 整面遮罩会挡住这一过程；仅悬浮小型半透明 pill 提示加载中（图片流式渲染在四周可见）
 defineProps<{ visible: boolean }>()
 </script>
 
@@ -12,9 +13,9 @@ defineProps<{ visible: boolean }>()
   >
     <div
       v-if="visible"
-      class="absolute inset-0 z-20 flex items-center justify-center bg-base/60"
+      class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
     >
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 rounded-full bg-base/60 px-4 py-2">
         <div class="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-ink" />
         <span class="text-sm text-muted">加载中…</span>
       </div>

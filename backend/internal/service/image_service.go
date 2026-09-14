@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"albumshelf/backend/internal/filesystem"
 	"albumshelf/backend/internal/model"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // VariantOriginal 原图变体标识（X-Image-Variant 响应头取值之一）。
@@ -24,11 +26,12 @@ func NewImageService(fs filesystem.Filesystem, thumbnails *ThumbnailService) *Im
 }
 
 // Get 打开图片文件，返回元信息、文件句柄与实际变体；调用方负责关闭句柄。
-// variant=preview → 走缩略图服务预览链路（生成失败自动回退原图并标注 original）；
+// variant=preview → 走缩略图服务预览链路（生成失败自动回退原图并标注 original），
+// prio 透传给生成调度器（当前查看=高，后台预热=低）；
 // original/空及其他任意值均按原图处理，不报错。
-func (s *ImageService) Get(path, variant string) (model.Image, *os.File, string, error) {
+func (s *ImageService) Get(ctx context.Context, path, variant string, prio thumbnail.Priority) (model.Image, *os.File, string, error) {
 	if variant == model.VariantPreview {
-		return s.thumbnails.GetPreview(path)
+		return s.thumbnails.GetPreview(ctx, path, prio)
 	}
 
 	img, file, err := s.fs.OpenImage(path)

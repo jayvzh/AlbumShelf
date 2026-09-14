@@ -70,7 +70,7 @@ Layer 1 文件层：Filesystem（扫描、Metadata、路径安全） + Repositor
 
 ```
 Original（原图）    → 100% 查看、高倍缩放、按需加载（用户点击"加载原图"）
-Preview（预览图）    → Viewer 默认显示（长边约 2560px，JPEG q80）
+Preview（预览图）    → Viewer 默认显示（长边约 1920px，JPEG q80）
 Thumbnail（缩略图）  → Filmstrip（200px）
 ```
 

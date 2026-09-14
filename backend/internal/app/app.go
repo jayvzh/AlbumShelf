@@ -19,6 +19,7 @@ import (
 	"albumshelf/backend/internal/filesystem"
 	"albumshelf/backend/internal/repository"
 	"albumshelf/backend/internal/service"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // App 持有应用级依赖。
@@ -59,7 +60,8 @@ func New(cfg *config.Config) *App {
 	settingsH := handler.NewSettingsHandler(settingsSvc)
 
 	cacheRepo := repository.NewImageCacheRepository(db)
-	thumbnailSvc := service.NewThumbnailService(fs, cfg.DataDir, cacheRepo)
+	thumbnailSvc := service.NewThumbnailService(fs, cfg.DataDir, cacheRepo,
+		thumbnail.NewScheduler(cfg.ThumbConcurrency))
 	imageSvc := service.NewImageService(fs, thumbnailSvc)
 	imageH := handler.NewImageHandler(imageSvc)
 	thumbnailH := handler.NewThumbnailHandler(thumbnailSvc)

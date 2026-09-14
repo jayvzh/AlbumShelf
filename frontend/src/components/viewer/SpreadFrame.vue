@@ -23,7 +23,8 @@ const emit = defineEmits<{
 
 // 每张图的自然尺寸，按 frame.images 下标追踪
 const naturalSizes = ref<Array<{ width: number; height: number } | null>>([])
-// 等高布局结果；null 表示尚未就绪（img 先以自然尺寸显示，就绪后统一收缩到 baseH）
+// 等高布局结果；null 表示尚未就绪。非 null 前临时高度沿用上一帧布局高度（见 watch），
+// 让渐进式 JPEG 流式渲染期间以接近最终的尺寸呈现，而不是先以自然尺寸（如 4000×6000）溢出画布
 const frameSize = ref<{ width: number; height: number } | null>(null)
 // 一次性 cache-bust 重试的 src 覆盖（按 frame.images 下标）
 const srcOverrides = ref<Record<number, string>>({})
@@ -33,7 +34,11 @@ watch(
   () => [props.frame, props.variant] as const,
   () => {
     naturalSizes.value = props.frame.images.map(() => null)
-    frameSize.value = null
+    // 渐进式 JPEG 适配：换帧瞬间先沿用上一帧布局高度作临时约束（模板只用 height），
+    // 流式渲染的预览图直接以接近最终的高度显示，Fit 就绪后重算真实值；
+    // 同图切换 variant（宽高比一致）时完全无跳变。首帧无历史高度则回退自然尺寸
+    const provisionalHeight = frameSize.value?.height
+    frameSize.value = provisionalHeight != null ? { width: 0, height: provisionalHeight } : null
     srcOverrides.value = {}
   },
   { immediate: true },

@@ -95,7 +95,7 @@
 **任务**：
 
 - `internal/thumbnail/`：generator.go（govips，同时产出 thumb/preview 两种变体）、cache.go（hash 命名 + `/data/cache/{thumb,preview}/` 持久化）、validator.go（mtime/size 失效判断）
-- `GET /api/v1/thumbnail?width=300`、`GET /api/v1/image?variant=preview`（长边 2560px JPEG q80），全部带版本参数 + immutable 缓存头
+- `GET /api/v1/thumbnail?width=300`、`GET /api/v1/image?variant=preview`（长边 1920px JPEG q80），全部带版本参数 + immutable 缓存头
 - image_cache 表迁移（variant 区分 thumb/preview）
 - 前端：Filmstrip、ThumbnailItem、useFilmstrip
 - 动态布局 + 虚拟渲染 + 懒加载 + 当前图自动居中高亮：

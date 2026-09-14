@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -21,24 +22,28 @@ type Config struct {
 	AuthPassword string
 	// SessionMaxAge 会话有效期（秒），默认 7 天。
 	SessionMaxAge int
+	// ThumbConcurrency 生成调度器并发上限（同时执行的 libvips 任务数），默认 2。
+	ThumbConcurrency int
 }
 
 // Load 从环境变量读取配置。
 //
-//	IMAGE_ROOT      默认 /images
-//	DATA_DIR        默认 /data
-//	PORT            默认 8080
-//	AUTH_USERNAME   默认空
-//	AUTH_PASSWORD   默认空（为空时认证未启用）
-//	SESSION_MAX_AGE 默认 168h（7 天），非法值回退默认
+//	IMAGE_ROOT        默认 /images
+//	DATA_DIR          默认 /data
+//	PORT              默认 8080
+//	AUTH_USERNAME     默认空
+//	AUTH_PASSWORD     默认空（为空时认证未启用）
+//	SESSION_MAX_AGE   默认 168h（7 天），非法值回退默认
+//	THUMB_CONCURRENCY 默认 2，非正整数回退默认
 func Load() *Config {
 	return &Config{
-		ImageRoot:     getEnv("IMAGE_ROOT", "/images"),
-		DataDir:       getEnv("DATA_DIR", "/data"),
-		Port:          getEnv("PORT", "8080"),
-		AuthUsername:  getEnv("AUTH_USERNAME", ""),
-		AuthPassword:  getEnv("AUTH_PASSWORD", ""),
-		SessionMaxAge: getSessionMaxAge(),
+		ImageRoot:        getEnv("IMAGE_ROOT", "/images"),
+		DataDir:          getEnv("DATA_DIR", "/data"),
+		Port:             getEnv("PORT", "8080"),
+		AuthUsername:     getEnv("AUTH_USERNAME", ""),
+		AuthPassword:     getEnv("AUTH_PASSWORD", ""),
+		SessionMaxAge:    getSessionMaxAge(),
+		ThumbConcurrency: getEnvInt("THUMB_CONCURRENCY", 2),
 	}
 }
 
@@ -58,6 +63,19 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getEnvInt 读取整型环境变量，未设置或非法/非正值时返回 fallback。
+func getEnvInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return fallback
+	}
+	return n
 }
 
 // getSessionMaxAge 解析 SESSION_MAX_AGE（Go duration 字符串），默认 7 天，非法值回退默认。

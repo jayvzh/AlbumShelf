@@ -141,7 +141,7 @@ GET /api/v1/image?path=/Comics/001.jpg&variant=preview&v=17345678901234567
 
 - 返回图片二进制（正确的 Content-Type）
 - **必须返回缓存头**：`Cache-Control: public, max-age=31536000, immutable` + `ETag`（mtime+size）。URL 含版本参数 → 原图/预览图修改后 URL 自然变化，浏览器缓存自动失效
-- 预览图规格：长边 2560px、JPEG q80（服务器持久缓存，见 ARCHITECTURE.md §4.3）
+- 预览图规格：长边 1920px、JPEG q80（服务器持久缓存，见 ARCHITECTURE.md §4.3）
 
 ### 3.4 获取图片元信息
 

@@ -11,6 +11,7 @@ import (
 	"albumshelf/backend/internal/filesystem"
 	"albumshelf/backend/internal/model"
 	"albumshelf/backend/internal/service"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // ImageHandler 处理图片查看相关 API。
@@ -25,11 +26,18 @@ func NewImageHandler(svc *service.ImageService) *ImageHandler {
 
 // Get 处理 GET /api/v1/image，流式返回图片二进制。
 // variant=preview 走预览生成链路（service 内失败自动回退原图）；
+// 请求头 X-Load-Priority: low（前端空闲预热）将生成任务降为低优先级——
+// 同源自定义头不改变 URL，浏览器 HTTP 缓存键不受影响；
 // X-Image-Variant 如实标注实际返回的变体（preview 或 original 回退）。
 func (h *ImageHandler) Get(c *gin.Context) {
 	req := request.NewImageGetRequest(c)
 
-	info, file, actualVariant, err := h.svc.Get(req.Path, req.Variant)
+	prio := thumbnail.PriorityHigh
+	if c.GetHeader("X-Load-Priority") == "low" {
+		prio = thumbnail.PriorityLow
+	}
+
+	info, file, actualVariant, err := h.svc.Get(c.Request.Context(), req.Path, req.Variant, prio)
 	if err != nil {
 		writeImageError(c, err)
 		return

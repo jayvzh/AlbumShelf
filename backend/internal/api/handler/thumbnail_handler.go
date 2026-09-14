@@ -31,7 +31,7 @@ func (h *ThumbnailHandler) Get(c *gin.Context) {
 		return
 	}
 
-	info, file, err := h.svc.GetThumb(req.Path, req.Width)
+	info, file, err := h.svc.GetThumb(c.Request.Context(), req.Path, req.Width)
 	if err != nil {
 		switch {
 		case errors.Is(err, filesystem.ErrInvalidPath),

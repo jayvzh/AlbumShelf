@@ -220,7 +220,7 @@ AlbumShelf/
 ├── data/
 │   ├── cache/
 │   │   ├── thumbs/        # 缩略图持久缓存（200px）
-│   │   └── previews/      # 预览图持久缓存（长边 2560px）
+│   │   └── previews/      # 预览图持久缓存（长边 1920px）
 │   └── albumshelf.db
 │
 ├── .env.example
@@ -617,7 +617,7 @@ Save → SettingsStore → SettingsService → PUT /api/v1/folder/settings
       仅 Current Image → Load Preview（默认）/ Original（用户点击"加载原图"时）
 ```
 
-三级图片体系：Original（原图，**按需加载**——用户点击"加载原图"）/ Preview（Viewer 默认显示，长边 2560px）/ Thumbnail（Filmstrip 用，200px）。
+三级图片体系：Original（原图，**按需加载**——用户点击"加载原图"）/ Preview（Viewer 默认显示，长边 1920px）/ Thumbnail（Filmstrip 用，200px）。
 
 双端缓存（详见 ARCHITECTURE.md §4.3）：服务器持久缓存 `/data/cache/` + 浏览器 HTTP 缓存（URL 版本参数 `v={mtime}{size}` + `Cache-Control: immutable`）——重访同目录缩略图/预览图 0 网络请求；原图不自动显示，同一张图重复点击"加载原图"直接命中浏览器缓存。
 
