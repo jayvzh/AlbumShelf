@@ -16,8 +16,10 @@ services:
       - AUTH_USERNAME=${AUTH_USERNAME:-}     # 管理员用户名（示例缺省值 admin123；可空）
       - AUTH_PASSWORD=${AUTH_PASSWORD:-}     # 管理员密码（示例缺省值 admin12345）：设置后启用登录系统；留空 = 关闭登录（游客模式）
       - SESSION_MAX_AGE=${SESSION_MAX_AGE:-168h}   # 会话有效期（Go duration 格式）
-      # - VIPS_CONCURRENCY=2                  # libvips 解码线程数（默认 = CPU 核数）；NAS 限资源时可调低
-      # - THUMB_CONCURRENCY=2                 # 同时生成的图片数上限（默认 2）；IO 弱的机器可保持 2 或调低
+      # 并发默认自动配平（无需设置）：vips 线程 = 可用核数 ÷ THUMB_CONCURRENCY，两者乘积≈核数；超订阅时启动日志打 WARN
+      # - VIPS_CONCURRENCY=2                  # 显式覆盖 libvips 线程数（默认自动配平）
+      # - THUMB_CONCURRENCY=2                 # 同时生成的图片数上限（默认 2）；保持 2 可让用户请求不被在飞的后台预热任务阻塞
+      # - THUMB_WARMER=0                      # 关闭后台空闲预热（默认开启：低优先级补齐全库缩略图+预览图，首次进目录即热）
     volumes:
       - ${IMAGE_ROOT:-./images}:/images:ro   # 左侧改为宿主机照片目录（NAS 挂载路径）
       - ${DATA_DIR:-./data}:/data            # 缩略图缓存与 SQLite 数据（建议持久目录）

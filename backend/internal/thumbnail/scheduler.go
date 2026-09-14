@@ -44,11 +44,17 @@ type Scheduler struct {
 	queues [2][]*job
 }
 
+// schedulerConcurrency 记录最近一次 NewScheduler 的并发上限，供
+// EffectiveVipsConcurrency 做"调度器并发 × vips 线程 ≈ 可用核数"的默认配平。
+// app 组装必然先于首个生成请求，写入天然先于读取；仅影响性能默认值，不影响正确性。
+var schedulerConcurrency = 2
+
 // NewScheduler 创建并发上限为 concurrency 的调度器，小于 1 时按 1 处理。
 func NewScheduler(concurrency int) *Scheduler {
 	if concurrency < 1 {
 		concurrency = 1
 	}
+	schedulerConcurrency = concurrency
 	return &Scheduler{slots: make(chan struct{}, concurrency)}
 }
 

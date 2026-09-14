@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,8 @@ type Config struct {
 	SessionMaxAge int
 	// ThumbConcurrency 生成调度器并发上限（同时执行的 libvips 任务数），默认 2。
 	ThumbConcurrency int
+	// ThumbWarmer 是否启用后台缩略图预热器（空闲低优先级补齐全库 thumbs），默认启用。
+	ThumbWarmer bool
 }
 
 // Load 从环境变量读取配置。
@@ -35,6 +38,7 @@ type Config struct {
 //	AUTH_PASSWORD     默认空（为空时认证未启用）
 //	SESSION_MAX_AGE   默认 168h（7 天），非法值回退默认
 //	THUMB_CONCURRENCY 默认 2，非正整数回退默认
+//	THUMB_WARMER       默认 true；设为 0/false/off 关闭后台预热
 func Load() *Config {
 	return &Config{
 		ImageRoot:        getEnv("IMAGE_ROOT", "/images"),
@@ -44,6 +48,7 @@ func Load() *Config {
 		AuthPassword:     getEnv("AUTH_PASSWORD", ""),
 		SessionMaxAge:    getSessionMaxAge(),
 		ThumbConcurrency: getEnvInt("THUMB_CONCURRENCY", 2),
+		ThumbWarmer:      getEnvBool("THUMB_WARMER", true),
 	}
 }
 
@@ -76,6 +81,21 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+// getEnvBool 读取布尔环境变量；仅显式的假值（0/false/off/no，大小写不敏感）为 false，
+// 其余（含未设置）均为 true。
+func getEnvBool(key string, fallback bool) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	switch strings.ToLower(v) {
+	case "0", "false", "off", "no":
+		return false
+	default:
+		return true
+	}
 }
 
 // getSessionMaxAge 解析 SESSION_MAX_AGE（Go duration 字符串），默认 7 天，非法值回退默认。

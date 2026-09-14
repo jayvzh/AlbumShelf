@@ -45,7 +45,7 @@ func scanDir(absDir, root string) ([]model.Folder, []model.Image, error) {
 			continue
 		}
 
-		if !isImageExt(filepath.Ext(name)) {
+		if !IsImageExt(filepath.Ext(name)) {
 			continue
 		}
 		imgPaths = append(imgPaths, filepath.Join(absDir, name))
@@ -104,8 +104,8 @@ func readImagesConcurrently(paths []string, root string) []model.Image {
 	return out
 }
 
-// isImageExt 判断扩展名是否为支持的图片格式（大小写不敏感）。
-func isImageExt(ext string) bool {
+// IsImageExt 判断扩展名是否为支持的图片格式（大小写不敏感）。
+func IsImageExt(ext string) bool {
 	_, ok := imageExts[strings.ToLower(ext)]
 	return ok
 }

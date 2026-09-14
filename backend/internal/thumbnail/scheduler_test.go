@@ -3,11 +3,30 @@ package thumbnail
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+// VIPS_CONCURRENCY 显式设置（≥1）优先；未设置或非法时按"可用核数 ÷ 调度器并发"配平（至少 1）。
+func TestEffectiveVipsConcurrency(t *testing.T) {
+	t.Setenv("VIPS_CONCURRENCY", "3")
+	if got := EffectiveVipsConcurrency(); got != 3 {
+		t.Fatalf("显式设置应直接采用 3: %d", got)
+	}
+
+	t.Setenv("VIPS_CONCURRENCY", "0") // 非法值视为未设置，走配平
+	NewScheduler(2)
+	want := runtime.GOMAXPROCS(0) / 2
+	if want < 1 {
+		want = 1
+	}
+	if got := EffectiveVipsConcurrency(); got != want {
+		t.Fatalf("未设置时应配平为 %d: %d", want, got)
+	}
+}
 
 // 并发上限：8 个任务、上限 2，运行峰值不得超过 2。
 func TestSchedulerConcurrencyLimit(t *testing.T) {

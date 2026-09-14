@@ -227,3 +227,81 @@ func TestIndexRecordedAfterSlotRelease(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// thumbCachePath 以源图当前 mtime/size 构造 thumb(300) 缓存键路径（与派生判定同参）。
+func thumbCachePath(t *testing.T, svc *ThumbnailService, sourcePath string) string {
+	t.Helper()
+	info, err := svc.fs.GetMetadata(sourcePath)
+	if err != nil {
+		t.Fatalf("读取源图元信息失败: %v", err)
+	}
+	thumbPath, err := thumbnail.CachePath(svc.dataDir, sourcePath, model.VariantThumb,
+		300, info.ModifiedAt.UnixNano(), info.Size)
+	if err != nil {
+		t.Fatalf("构造 thumb 缓存路径失败: %v", err)
+	}
+	return thumbPath
+}
+
+// 级联：GetThumb 从原图生成成功后，异步低优先级趁热补 preview（轮询等待落盘）。
+func TestCascadePreviewAfterThumbGeneration(t *testing.T) {
+	svc, imageRoot := newTestThumbnailEnv(t)
+	writeTestJPEG(t, imageRoot, "ok.jpg", 800, 600)
+
+	_, file, err := svc.GetThumb(ctx, "/ok.jpg", 300)
+	if err != nil {
+		t.Fatalf("生成 thumb 应成功: %v", err)
+	}
+	file.Close()
+
+	previewPath := previewCachePath(t, svc, "/ok.jpg")
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if thumbnail.IsFresh(previewPath) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("级联 preview 未在超时内生成")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// WarmThumb：缺失时生成并返回 true；已缓存时返回 false 且不再生成；非法路径报错。
+func TestWarmThumbIdempotent(t *testing.T) {
+	svc, imageRoot := newTestThumbnailEnv(t)
+	writeTestJPEG(t, imageRoot, "ok.jpg", 800, 600)
+
+	generated, err := svc.WarmThumb(ctx, "/ok.jpg")
+	if err != nil || !generated {
+		t.Fatalf("首次预热应生成: generated=%v err=%v", generated, err)
+	}
+	generated, err = svc.WarmThumb(ctx, "/ok.jpg")
+	if err != nil || generated {
+		t.Fatalf("已缓存应返回 false,nil: generated=%v err=%v", generated, err)
+	}
+	if _, err := svc.WarmThumb(ctx, "/nope.jpg"); err == nil {
+		t.Fatal("不存在路径应返回错误")
+	}
+}
+
+// 预热器 pass：递归补齐可见目录 thumbs，跳过隐藏目录；重复执行幂等。
+func TestThumbWarmerPass(t *testing.T) {
+	svc, imageRoot := newTestThumbnailEnv(t)
+	writeTestJPEG(t, imageRoot, "a/1.jpg", 800, 600)
+	writeTestJPEG(t, imageRoot, "b/c/2.jpg", 800, 600)
+	writeTestJPEG(t, imageRoot, ".hidden/3.jpg", 800, 600)
+
+	w := NewThumbWarmer(svc.fs, svc, time.Hour)
+	w.pass(ctx)
+	w.pass(ctx) // 二轮幂等（全命中缓存）
+
+	for _, rel := range []string{"/a/1.jpg", "/b/c/2.jpg"} {
+		if !thumbnail.IsFresh(thumbCachePath(t, svc, rel)) {
+			t.Fatalf("%s 的 thumb 应被预热", rel)
+		}
+	}
+	if thumbnail.IsFresh(thumbCachePath(t, svc, ".hidden/3.jpg")) {
+		t.Fatal("隐藏目录不应被预热")
+	}
+}

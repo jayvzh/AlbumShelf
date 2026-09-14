@@ -2,13 +2,13 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,19 +65,22 @@ func New(cfg *config.Config) *App {
 	thumbnailSvc := service.NewThumbnailService(fs, cfg.DataDir, cacheRepo,
 		thumbnail.NewScheduler(cfg.ThumbConcurrency))
 
-	// 并发配置自检：缩略图调度器就绪后输出生效值。VIPS_CONCURRENCY 的解析逻辑
-	// 与 thumbnail 包 libvips 初始化保持一致（默认 CPU 核数），二者乘积超过 CPU
-	// 核数时提示超订阅。
-	cpus := runtime.NumCPU()
-	vipsWorkers := cpus
-	if n, err := strconv.Atoi(os.Getenv("VIPS_CONCURRENCY")); err == nil && n >= 1 {
-		vipsWorkers = n
+	// 并发配置自检：缩略图调度器就绪后输出生效值（与 libvips 实际取值同源：
+	// thumbnail.EffectiveVipsConcurrency——env 显式覆盖优先，否则按
+	// 可用核数 ÷ 调度器并发放量配平）。乘积超过可用核数时提示超订阅。
+	procs := runtime.GOMAXPROCS(0)
+	vipsWorkers := thumbnail.EffectiveVipsConcurrency()
+	log.Printf("缩略图并发配置: THUMB_CONCURRENCY=%d, VIPS_CONCURRENCY=%d, 可用核数=%d",
+		cfg.ThumbConcurrency, vipsWorkers, procs)
+	if cfg.ThumbConcurrency*vipsWorkers > procs {
+		log.Printf("[WARN] 缩略图并发超订阅: THUMB_CONCURRENCY(%d) × VIPS_CONCURRENCY(%d) = %d > 可用核数 %d，建议两者乘积约等于可用核数",
+			cfg.ThumbConcurrency, vipsWorkers, cfg.ThumbConcurrency*vipsWorkers, procs)
 	}
-	log.Printf("缩略图并发配置: THUMB_CONCURRENCY=%d, VIPS_CONCURRENCY=%d, CPU 核数=%d",
-		cfg.ThumbConcurrency, vipsWorkers, cpus)
-	if cfg.ThumbConcurrency*vipsWorkers > cpus {
-		log.Printf("[WARN] 缩略图并发超订阅: THUMB_CONCURRENCY(%d) × VIPS_CONCURRENCY(%d) = %d > CPU 核数 %d，建议两者乘积约等于 CPU 核数",
-			cfg.ThumbConcurrency, vipsWorkers, cfg.ThumbConcurrency*vipsWorkers, cpus)
+
+	// 后台预热器：空闲低优先级补齐全库 thumbs（成功后级联趁热补 preview），
+	// 首次进入任何目录即命中缓存；随进程生命周期运行，无需优雅退出。
+	if cfg.ThumbWarmer {
+		go service.NewThumbWarmer(fs, thumbnailSvc, 30*time.Minute).Run(context.Background())
 	}
 
 	imageSvc := service.NewImageService(fs, thumbnailSvc)

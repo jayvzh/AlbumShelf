@@ -153,38 +153,107 @@ func (s *ThumbnailService) deliver(ctx context.Context, path, variant string, si
 		// 由 Submit 返回（槽位已释放）后的 fire-and-forget goroutine best-effort 补记。
 		// Delete 必须先于 close(done)：若反过来，等待者可能 load 到已关闭的旧 flight
 		// 并与新 flight 竞争前空转（热自旋）。
-		enqueuedAt := time.Now()
-		var genFile *os.File
-		var genW, genH int
-		var genErr error
-		err := s.sched.Submit(ctx, prio, func() {
-			queueWait := time.Since(enqueuedAt)
-			start := time.Now()
-			genFile, genW, genH, genErr = s.generate(path, variant, sizeBucket, info, cachePath)
-			log.Printf("[thumbnail] %s %s 生成 %s（排队 %s）",
-				variant, path, time.Since(start).Round(time.Millisecond), queueWait.Round(time.Millisecond))
-		})
+		oc := s.enqueue(ctx, prio, path, variant, sizeBucket, info, cachePath)
 		s.inflight.Delete(cachePath)
-		// 记录须先于 close(done)：等待者被唤醒后回循环顶部即查负缓存，须能看到该条目。
-		// 首次生成失败在此打一次日志（含回退语义：preview 由 GetPreview 回退原图、
-		// thumb 由 handler 返回 500）；负缓存 TTL 内的重复请求快速失败，不再刷屏。
-		if err == nil && genErr != nil {
-			log.Printf("[thumbnail] %s %s 生成失败（负缓存 TTL 内同键请求快速失败）: %v",
-				variant, path, genErr)
-			s.recordNegative(cachePath, genErr)
-		}
+		// 负缓存已在 enqueue 内记录（须先于 close(done)：等待者被唤醒后回循环顶部
+		// 即查负缓存，须能看到该条目）。
 		close(f.done)
 
-		if err != nil {
+		if oc.cancelled {
 			// 排队中被 ctx 取消：run 未执行，直接把取消带给调用方
-			return model.Image{}, nil, err
+			return model.Image{}, nil, ctx.Err()
 		}
-		if genErr == nil {
+		if oc.genErr == nil {
 			// 索引登记不占用生成槽：失败仅记日志，不阻断请求（缓存文件已生成，可用性优先）
-			go s.index(path, variant, cachePath, info, genW, genH)
+			go s.index(path, variant, cachePath, info, oc.width, oc.height)
+			// 趁热级联：thumb 刚从原图生成（源文件仍在 page cache），若同源 preview
+			// 未缓存，顺手低优先级补生成——用户随后点开该图时 preview 秒出。
+			if variant == model.VariantThumb {
+				s.cascadePreview(path, info)
+			}
 		}
-		return info, genFile, genErr
+		return info, oc.file, oc.genErr
 	}
+}
+
+// genOutcome 一次排队生成的结果。cancelled 表示排队中被 ctx 取消（run 未执行），
+// 与 genErr（libvips/落盘失败，已记负缓存与日志）互斥。
+type genOutcome struct {
+	file          *os.File
+	width, height int
+	genErr        error
+	cancelled     bool
+}
+
+// enqueue 经调度器排队执行一次生成并记录耗时/失败日志与负缓存。
+// 只做单次 Submit——供 deliver 执行者与后台级联复用；调用方自行管理 singleflight。
+func (s *ThumbnailService) enqueue(ctx context.Context, prio thumbnail.Priority, path, variant string, sizeBucket int, info model.Image, cachePath string) genOutcome {
+	enqueuedAt := time.Now()
+	var file *os.File
+	var w, h int
+	var genErr error
+	err := s.sched.Submit(ctx, prio, func() {
+		queueWait := time.Since(enqueuedAt)
+		start := time.Now()
+		file, w, h, genErr = s.generate(path, variant, sizeBucket, info, cachePath)
+		log.Printf("[thumbnail] %s %s 生成 %s（排队 %s）",
+			variant, path, time.Since(start).Round(time.Millisecond), queueWait.Round(time.Millisecond))
+	})
+	if err != nil {
+		return genOutcome{cancelled: true}
+	}
+	if genErr != nil {
+		log.Printf("[thumbnail] %s %s 生成失败（负缓存 TTL 内同键请求快速失败）: %v",
+			variant, path, genErr)
+		s.recordNegative(cachePath, genErr)
+	}
+	return genOutcome{file: file, width: w, height: h, genErr: genErr}
+}
+
+// cascadePreview 趁热级联生成 preview：紧随 thumb 生成调用（此刻原图刚被完整读取，
+// 仍在 page cache，生成 preview 只花 CPU 不再付冷读代价）。以低优先级入队，
+// 不与用户当前查看的图抢占；background ctx 不受请求取消影响。
+// 已有同键生成在飞（singleflight 竞选失败）则放弃，由在飞任务兜底。
+func (s *ThumbnailService) cascadePreview(path string, info model.Image) {
+	previewPath, err := thumbnail.CachePath(s.dataDir, path, model.VariantPreview,
+		model.PreviewLongEdge, info.ModifiedAt.UnixNano(), info.Size)
+	if err != nil || thumbnail.IsFresh(previewPath) {
+		return
+	}
+	f := &flight{done: make(chan struct{})}
+	if _, loaded := s.inflight.LoadOrStore(previewPath, f); loaded {
+		return
+	}
+	go func() {
+		oc := s.enqueue(context.Background(), thumbnail.PriorityLow,
+			path, model.VariantPreview, model.PreviewLongEdge, info, previewPath)
+		s.inflight.Delete(previewPath)
+		close(f.done)
+		if oc.file != nil {
+			oc.file.Close()
+		}
+		if !oc.cancelled && oc.genErr == nil {
+			go s.index(path, model.VariantPreview, previewPath, info, oc.width, oc.height)
+		}
+	}()
+}
+
+// WarmThumb 后台预热：确保 path 的 thumb 缓存存在（低优先级），返回是否实际生成。
+// 供 ThumbWarmer 调用；复用 deliver 全部语义（singleflight/负缓存/成功后级联 preview）。
+// 已缓存或负缓存命中时不做任何生成；调用方以串行节奏调用即可天然限流。
+func (s *ThumbnailService) WarmThumb(ctx context.Context, path string) (bool, error) {
+	info, cachePath, err := s.prepare(path, model.VariantThumb, 300)
+	if err != nil {
+		return false, err
+	}
+	if thumbnail.IsFresh(cachePath) {
+		return false, nil
+	}
+	_, file, err := s.deliver(ctx, path, model.VariantThumb, 300, info, cachePath, thumbnail.PriorityLow)
+	if file != nil {
+		file.Close()
+	}
+	return true, err
 }
 
 // recordNegative 记录生成失败负缓存；取消类错误不入缓存——它们不代表图坏，

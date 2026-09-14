@@ -104,7 +104,7 @@ func (fs *LocalFilesystem) resolveAndValidateImage(path string) (string, error) 
 	if err != nil || info.IsDir() {
 		return "", ErrNotFound
 	}
-	if !isImageExt(filepath.Ext(info.Name())) {
+	if !IsImageExt(filepath.Ext(info.Name())) {
 		return "", ErrUnsupported
 	}
 	return abs, nil
