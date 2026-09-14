@@ -37,6 +37,8 @@ const emit = defineEmits<{
   'toggle-info': []
   // 切换预览图 / 原图
   'toggle-variant': []
+  // 下载当前帧（按当前变体：预览图 / 原图）
+  download: []
   // 全图模式：显示/隐藏底部缩略图条
   'toggle-filmstrip': []
   // 点击页码：回到第一张图
@@ -78,7 +80,7 @@ function toggleExpanded() {
       {{ pageLabel }}
     </button>
     <span class="px-2 text-xs text-muted">{{ Math.round(scale * 100) }}%</span>
-    <!-- 展开控件区：顺序 显示信息 → 加载原图 → 其他（缩放 / Fit / 100% / 旋转 / 全屏 / 缩略图条） -->
+    <!-- 展开控件区：顺序 显示信息 → 加载原图 → 下载 → 其他（缩放 / Fit / 100% / 旋转 / 全屏 / 缩略图条） -->
     <template v-if="expanded">
       <AppButton variant="icon" :title="showInfo ? '隐藏信息' : '显示信息'" @click="emit('toggle-info')">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -99,6 +101,14 @@ function toggleExpanded() {
       >
         {{ variant === 'preview' ? '加载原图' : '原图' }}
       </button>
+      <!-- 下载：紧跟原图按钮，按当前变体下载（预览图 / 原图，优先命中浏览器缓存）；仿微信下载图标 -->
+      <AppButton variant="icon" title="下载" @click="emit('download')">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M12 15V3" />
+        </svg>
+      </AppButton>
       <AppButton variant="icon" title="缩小" @click="emit('zoom-out')">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
           <path d="M5 12h14" />

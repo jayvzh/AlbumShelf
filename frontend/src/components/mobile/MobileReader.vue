@@ -12,6 +12,7 @@ import { useKeyboard } from '../../composables/useKeyboard'
 import type { TapDetail } from '../../composables/usePan'
 import { buildSpreadFrames, DEFAULT_SPREAD_OPTIONS } from '../../utils/spread'
 import { cancelAll, syncViewerPreload } from '../../utils/imagePreloader'
+import { downloadImage } from '../../services/image.service'
 import { formatFileSize } from '../../utils/format'
 import ViewerCanvas from '../viewer/ViewerCanvas.vue'
 import SpreadFrame from '../viewer/SpreadFrame.vue'
@@ -172,6 +173,22 @@ function onSliderInput(e: Event) {
 
 function toggleVariant() {
   viewerStore.setVariant(viewerStore.variant === 'preview' ? 'original' : 'preview')
+  showControls()
+}
+
+// 下载当前图片：按当前变体拉取（URL 与显示一致，命中浏览器缓存），完成后重置控件自动隐藏计时
+const downloading = ref(false)
+async function downloadCurrentImage() {
+  const image = currentImage.value
+  if (!image || downloading.value) return
+  downloading.value = true
+  try {
+    await downloadImage(image, viewerStore.variant)
+  } catch {
+    /* 静默失败（与收藏等操作一致） */
+  } finally {
+    downloading.value = false
+  }
   showControls()
 }
 
@@ -384,16 +401,32 @@ watch(
           v-show="uiVisible"
           class="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-1 bg-gradient-to-t from-black/70 to-transparent px-3 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)]"
         >
-          <button
-            type="button"
-            class="ml-1 flex h-8 shrink-0 items-center justify-center self-start rounded-full border border-white/30 px-3 text-xs text-white/90 active:bg-white/10"
-            @click="toggleVariant"
-          >
-            <template v-if="viewerStore.variant === 'original'">返回预览</template>
-            <template v-else>
-              查看原图<span v-if="originalSizeHint" class="ml-1 text-[10px] text-white/55">{{ originalSizeHint }}</span>
-            </template>
-          </button>
+          <!-- 左下角：查看原图 + 下载（均为微信式描边按钮，同高成组） -->
+          <div class="ml-1 flex shrink-0 items-center gap-2 self-start">
+            <button
+              type="button"
+              class="flex h-8 shrink-0 items-center justify-center rounded-full border border-white/30 px-3 text-xs text-white/90 active:bg-white/10"
+              @click="toggleVariant"
+            >
+              <template v-if="viewerStore.variant === 'original'">返回预览</template>
+              <template v-else>
+                查看原图<span v-if="originalSizeHint" class="ml-1 text-[10px] text-white/55">{{ originalSizeHint }}</span>
+              </template>
+            </button>
+            <!-- 下载：按当前变体下载预览图/原图（优先命中浏览器缓存），仿微信描边圆形下载按钮 -->
+            <button
+              type="button"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30 text-white/90 active:bg-white/10"
+              aria-label="下载当前图片"
+              @click="downloadCurrentImage"
+            >
+              <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+            </button>
+          </div>
           <div class="flex items-center gap-2">
             <input
               type="range"

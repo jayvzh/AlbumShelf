@@ -2,8 +2,14 @@ import { defineStore } from 'pinia'
 import { ApiError } from '../services/api'
 import { getFolder, type FolderQueryOptions } from '../services/folder.service'
 import { useFavoritesStore } from './favorites'
+import { cancelAll } from '../utils/imagePreloader'
 import type { FolderItem, FolderResponse } from '../types/folder'
 import type { ImageFile } from '../types/file'
+
+// 目录请求代序号与中止器（模块级，非响应式）：仅最新一次 openFolder 结果生效，
+// 过期响应（含其失败）直接丢弃——防止慢请求后台完成后把用户拉回旧目录。
+let folderRequestSeq = 0
+let folderAbort: AbortController | null = null
 
 // 会话持久化键（localStorage，约定同 viewer.ts / useTheme）：刷新后恢复当前目录与展开状态
 const CURRENT_PATH_KEY = 'albumshelf:current-path'
@@ -67,16 +73,24 @@ export const useFolderStore = defineStore('folder', {
   }),
   actions: {
     // 打开目录：更新当前目录内容并缓存其子目录；opts 携带排序参数时透传（API.md §3.2）；同时退出收藏夹虚拟视图。
-    // 乐观切换：请求前即更新路径并清空内容，UI 立即进入「加载中…」而非停留旧目录；失败回滚路径。
+    // 乐观切换：请求前即更新路径并清空内容，UI 立即进入「加载中…」而非停留旧目录。
+    // 高优先级打断：新请求立即中止上一次未完成的目录请求并清空预加载调度器队列，
+    // 带宽让给新目录的列表与缩略图；旧请求的迟到结果/失败一律丢弃，绝不把用户拉回旧目录。
     async openFolder(path: string, opts?: FolderQueryOptions) {
       this.favoritesView = false
       this.loading = true
+      folderAbort?.abort()
+      folderAbort = new AbortController()
+      const signal = folderAbort.signal
+      const seq = ++folderRequestSeq
       const prevPath = this.currentPath
       this.currentPath = path
       this.folders = []
       this.images = []
+      cancelAll()
       try {
-        const res: FolderResponse = await getFolder(path, opts)
+        const res: FolderResponse = await getFolder(path, opts, signal)
+        if (seq !== folderRequestSeq) return // 已被更新的目录请求取代：丢弃过期结果
         this.currentPath = res.path
         this.folders = res.folders
         this.images = res.images
@@ -84,10 +98,11 @@ export const useFolderStore = defineStore('folder', {
         persistCurrentPath(res.path)
         this.error = null
       } catch (e) {
+        if (seq !== folderRequestSeq) return // 过期请求的失败（含被新请求中止）不回滚、不报错
         this.error = e instanceof ApiError ? `${e.code}: ${e.message}` : String(e)
         this.currentPath = prevPath
       } finally {
-        this.loading = false
+        if (seq === folderRequestSeq) this.loading = false
       }
     },
     // 刷新当前目录
@@ -103,6 +118,7 @@ export const useFolderStore = defineStore('folder', {
       this.images = useFavoritesStore().images
       persistCurrentPath(FAVORITES_SENTINEL)
       this.error = null
+      cancelAll() // 切换视图后旧目录的预加载队列全部失效，让位当前视图
     },
     // 展开/折叠目录树节点并持久化；展开时按需加载子目录（根节点恒展开，忽略）
     async toggleExpanded(path: string) {

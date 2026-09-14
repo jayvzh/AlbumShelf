@@ -26,6 +26,48 @@ export function withCacheBust(url: string): string {
   return `${url}&cb=${Date.now()}`
 }
 
+// MIME → 扩展名：preview 服务端统一 JPEG 输出（生成失败回退原图时 MIME 为真实格式），用于下载文件名修正
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/avif': '.avif',
+  'image/bmp': '.bmp',
+  'image/gif': '.gif',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+}
+
+// 下载文件名：原图保留原文件名；预览产物为 JPEG，按响应 MIME 替换扩展名（拿不到则兜底 .jpg）
+function downloadFileName(
+  image: ImageFile,
+  variant: 'original' | 'preview',
+  mime: string,
+): string {
+  if (variant === 'original') return image.name
+  const dot = image.name.lastIndexOf('.')
+  const base = dot > 0 ? image.name.slice(0, dot) : image.name
+  return `${base}${MIME_EXTENSIONS[mime] ?? '.jpg'}`
+}
+
+// 下载图片：请求 URL 与阅读器内 <img> 完全一致，immutable 缓存下直接命中浏览器缓存（即"从缓存下载"），
+// 未缓存时同源请求兜底；经 blob + a[download] 触发浏览器下载并保留正确文件名
+export async function downloadImage(
+  image: ImageFile,
+  variant: 'original' | 'preview' = 'preview',
+): Promise<void> {
+  const response = await fetch(buildImageUrl(image, variant))
+  if (!response.ok) throw new Error(`下载失败：HTTP ${response.status}`)
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = downloadFileName(image, variant, blob.type)
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  // 延迟释放：部分浏览器需在下载启动后仍可读取 blob URL
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+}
+
 // 获取图片元信息
 export function getImageInfo(path: string): Promise<ImageInfo> {
   return request<ImageInfo>(`/image/info?path=${encodeURIComponent(path)}`)

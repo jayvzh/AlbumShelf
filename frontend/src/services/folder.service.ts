@@ -17,8 +17,8 @@ export interface FolderQueryOptions {
   regexRules?: SortRule[]
 }
 
-// 列出目录内容（子目录 + 图片）；提供的参数才拼进 query（API.md §3.2）
-export function getFolder(path: string, opts?: FolderQueryOptions): Promise<FolderResponse> {
+// 列出目录内容（子目录 + 图片）；提供的参数才拼进 query（API.md §3.2）；signal 用于切换目录时中止过期请求
+export function getFolder(path: string, opts?: FolderQueryOptions, signal?: AbortSignal): Promise<FolderResponse> {
   // 根目录（'/' 或空）直接传 path=/，其余路径做 URL 编码
   const query = !path || path === '/' ? '/' : encodeURIComponent(path)
   let url = `/folders?path=${query}`
@@ -28,7 +28,7 @@ export function getFolder(path: string, opts?: FolderQueryOptions): Promise<Fold
   if (opts?.regexRules?.length) {
     url += `&regex_rules=${encodeURIComponent(JSON.stringify({ rules: opts.regexRules }))}`
   }
-  return request<FolderResponse>(url)
+  return request<FolderResponse>(url, signal ? { signal } : undefined)
 }
 
 // 正则排序预览（API.md §3.7）：非法正则返回 ApiError(code=INVALID_REGEX)

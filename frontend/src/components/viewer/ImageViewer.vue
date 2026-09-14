@@ -10,6 +10,7 @@ import { useViewer } from '../../composables/useViewer'
 import { useKeyboard } from '../../composables/useKeyboard'
 import { useIsMobile, useMediaQuery } from '../../composables/useMediaQuery'
 import { cancelAll, syncViewerPreload } from '../../utils/imagePreloader'
+import { downloadImage } from '../../services/image.service'
 import type { ImageFile } from '../../types/file'
 import ViewerToolbar from './ViewerToolbar.vue'
 import ViewerCanvas from './ViewerCanvas.vue'
@@ -118,6 +119,25 @@ async function toggleFrameFavorite(index: number) {
   }
 }
 
+// 下载当前帧：按当前变体（preview 预览图 / original 原图）逐张拉取；
+// 请求 URL 与显示 URL 一致，命中浏览器 immutable 缓存；双页帧连下两张，间隔规避浏览器多文件节流
+const downloading = ref(false)
+async function downloadCurrentFrame() {
+  const frame = currentFrame.value
+  if (!frame || downloading.value) return
+  downloading.value = true
+  try {
+    for (const image of frame.images) {
+      await downloadImage(image, viewerStore.variant)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+  } catch {
+    /* 静默失败（与收藏等操作一致） */
+  } finally {
+    downloading.value = false
+  }
+}
+
 // 键盘 → action：翻页走 store，缩放/旋转/全屏走 viewer，Esc 逐级返回（全图→图片→文件）；
 // S 收藏当前图（双页帧收藏视觉左图，即 images[0]）
 const keyboard = useKeyboard({
@@ -217,6 +237,7 @@ function zoomAtCenter(factor: number) {
         @toggle-fullscreen="handleToggleFullscreen()"
         @toggle-info="showInfo = !showInfo"
         @toggle-variant="viewerStore.setVariant(viewerStore.variant === 'preview' ? 'original' : 'preview')"
+        @download="downloadCurrentFrame"
         @toggle-filmstrip="viewerStore.toggleFilmstrip()"
         @go-first="viewerStore.select(0)"
       />
