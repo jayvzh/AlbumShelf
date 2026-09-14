@@ -16,8 +16,19 @@ export function buildImageUrl(
   return `/api/v1/image?path=${encodeURIComponent(image.path)}&variant=${variant}&v=${versionOf(image)}`
 }
 
+// 缩略图宽度桶按 devicePixelRatio 自适应（<1.5→200、<2.5→300、否则 500），避免 dpr=1 桌面拉高桶浪费带宽；
+// 桶值仅 200/300/500（服务端合法桶，见后端 model/thumbnail.go）；SSR/测试环境无 window 时回退 300
+function defaultThumbBucket(): number {
+  if (typeof window === 'undefined') return 300
+  const dpr = window.devicePixelRatio
+  if (dpr < 1.5) return 200
+  if (dpr < 2.5) return 300
+  return 500
+}
+
 // 构造缩略图 URL（按宽度缩放，Filmstrip 懒加载用；复用版本参数命中浏览器缓存）
-export function buildThumbnailUrl(image: ImageFile, width = 300): string {
+// width 缺省时按 dpr 选桶，显式传参行为不变
+export function buildThumbnailUrl(image: ImageFile, width: number = defaultThumbBucket()): string {
   return `/api/v1/thumbnail?path=${encodeURIComponent(image.path)}&width=${width}&v=${versionOf(image)}`
 }
 

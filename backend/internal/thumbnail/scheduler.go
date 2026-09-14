@@ -2,8 +2,17 @@ package thumbnail
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 )
+
+// ErrQueueFull 队列深度达到上限时 Submit 返回的哨兵错误。
+var ErrQueueFull = errors.New("thumbnail: 调度队列已满")
+
+// maxQueueDepth 高低优先级队列总深度上限：防止异常客户端无限堆积任务
+// 占用等待 goroutine（正常浏览远达不到该量级，前端预热已窗口化）。
+const maxQueueDepth = 256
 
 // Priority 描述生成任务的调度优先级：
 // PriorityHigh 用于用户正在查看的图（当前帧、翻页邻帧），PriorityLow 用于后台空闲预热。
@@ -23,6 +32,7 @@ type job struct {
 	run  func()
 	done chan struct{}
 	ran  bool
+	err  error // 仅在 run panic 被 recover 时非 nil（exec defer 兜底写入）
 }
 
 // Scheduler 是全局生成调度器：限制同时执行的 libvips 任务数（避免大图解码
@@ -45,6 +55,9 @@ func NewScheduler(concurrency int) *Scheduler {
 // Submit 入队并在任务完成后返回。ctx 取消时：
 //   - 尚未出队 → 任务被丢弃，返回 ctx.Err() 且 run 不执行；
 //   - 已开工 → 等待本次 run 执行完毕（无法中断），返回 nil。
+//
+// 队列总深度达到 maxQueueDepth 时立即返回 ErrQueueFull，不入队。
+// run panic 被 exec 兜底 recover，Submit 返回包含 panic 值的错误而非悬挂。
 func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -54,6 +67,10 @@ func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error
 	}
 	j := &job{prio: prio, ctx: ctx, run: run, done: make(chan struct{})}
 	s.mu.Lock()
+	if len(s.queues[PriorityHigh])+len(s.queues[PriorityLow]) >= maxQueueDepth {
+		s.mu.Unlock()
+		return ErrQueueFull
+	}
 	s.queues[prio] = append(s.queues[prio], j)
 	s.pump()
 	s.mu.Unlock()
@@ -62,7 +79,7 @@ func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error
 	if !j.ran {
 		return ctx.Err()
 	}
-	return nil
+	return j.err
 }
 
 // pump 尝试占用空闲槽位并派发队首任务；无任务则归还槽位。
@@ -101,12 +118,19 @@ func (s *Scheduler) take() *job {
 }
 
 // exec 执行任务，执行完先归还槽位再关闭 done，最后补位派发后续任务。
+// defer 兜底：run panic 时 recover 并把包装错误带给等待者（Submit 返回而非悬挂），
+// 槽位归还与 close(done) 依然必定执行，避免泄漏槽位与悬挂等待 goroutine。
 func (s *Scheduler) exec(j *job) {
 	j.ran = true
+	defer func() {
+		if r := recover(); r != nil {
+			j.err = fmt.Errorf("thumbnail: 调度任务 panic: %v", r)
+		}
+		<-s.slots
+		close(j.done)
+		s.mu.Lock()
+		s.pump()
+		s.mu.Unlock()
+	}()
 	j.run()
-	<-s.slots
-	close(j.done)
-	s.mu.Lock()
-	s.pump()
-	s.mu.Unlock()
 }

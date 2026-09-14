@@ -1,6 +1,8 @@
 package thumbnail
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -77,5 +79,25 @@ func TestCachePathVariantSubDir(t *testing.T) {
 func TestCachePathInvalidVariant(t *testing.T) {
 	if _, err := CachePath(t.TempDir(), "/a.jpg", "evil", 300, 1, 2); err == nil {
 		t.Fatal("未知变体应返回错误")
+	}
+}
+
+// 目录创建记忆化：MkdirAll 失败不得缓存失败状态，障碍移除后同 dataDir 重试必须成功。
+func TestCachePathDirFailureNotCached(t *testing.T) {
+	dataDir := t.TempDir()
+	// 用同名普通文件占位 cache 目录，使 MkdirAll 必然失败
+	blocker := filepath.Join(dataDir, "cache")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatalf("创建占位文件失败: %v", err)
+	}
+	if _, err := CachePath(dataDir, "/a.jpg", model.VariantThumb, 300, 1, 2); err == nil {
+		t.Fatal("cache 路径被文件占用时应返回错误")
+	}
+	if err := os.Remove(blocker); err != nil {
+		t.Fatalf("移除占位文件失败: %v", err)
+	}
+	// 首次失败状态未被缓存：移除障碍后重试应成功
+	if _, err := CachePath(dataDir, "/a.jpg", model.VariantThumb, 300, 1, 2); err != nil {
+		t.Fatalf("失败状态不应被缓存，重试应成功: %v", err)
 	}
 }

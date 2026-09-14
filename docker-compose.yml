@@ -22,3 +22,9 @@ services:
       - ${IMAGE_ROOT:-./images}:/images:ro   # 左侧改为宿主机照片目录（NAS 挂载路径）
       - ${DATA_DIR:-./data}:/data            # 缩略图缓存与 SQLite 数据（建议持久目录）
     restart: unless-stopped
+    # 日志轮转：Docker json-file 默认无大小上限，长期运行会撑满磁盘
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

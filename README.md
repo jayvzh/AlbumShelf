@@ -111,6 +111,20 @@ docker run -d --name albumshelf \
 - 忘记凭证：修改 `.env` / compose 中的变量后重建容器即可
 - HTTPS 建议由 NAS 侧反向代理处理
 
+### 性能调优
+
+缩略图 / 预览图生成基于 libvips，可通过以下环境变量控制并发：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| THUMB_CONCURRENCY | 2 | 缩略图生成调度并发（同时执行的 libvips 任务数） |
+| VIPS_CONCURRENCY | CPU 核数 | libvips 单任务内部线程数 |
+
+调优建议：
+
+- 两个值的**乘积 ≈ CPU 核数**时表现最佳，避免线程超订阅互相争抢（启动日志会输出生效值，超订阅时输出 WARN 提示）。
+- NAS / 低核设备（≤4 核）建议 `THUMB_CONCURRENCY=1-2`，并相应调低 `VIPS_CONCURRENCY`，为系统其他服务留出资源。
+
 ### 自行构建镜像（开发者）
 
 ```bash

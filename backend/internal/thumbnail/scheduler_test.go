@@ -3,6 +3,7 @@ package thumbnail
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -164,5 +165,79 @@ func TestSchedulerSubmitWithCancelledContext(t *testing.T) {
 	}
 	if ran {
 		t.Fatal("任务不应执行")
+	}
+}
+
+// 队列上限：唯一槽位被阻塞任务占用、队列填满后，Submit 立即返回 ErrQueueFull。
+func TestSchedulerQueueFull(t *testing.T) {
+	s := NewScheduler(1)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	blockerDone := make(chan error, 1)
+	go func() {
+		blockerDone <- s.Submit(context.Background(), PriorityHigh, func() {
+			close(started)
+			<-release
+		})
+	}()
+	<-started // 确认槽位已被阻塞任务占用
+
+	// 同包测试直接填充内部队列到上限（起 256 个 Submit goroutine 既慢又无必要）
+	s.mu.Lock()
+	for len(s.queues[PriorityHigh])+len(s.queues[PriorityLow]) < maxQueueDepth {
+		s.queues[PriorityLow] = append(s.queues[PriorityLow],
+			&job{prio: PriorityLow, ctx: context.Background(), run: func() {}, done: make(chan struct{})})
+	}
+	s.mu.Unlock()
+
+	err := s.Submit(context.Background(), PriorityHigh, func() {})
+	if !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("期望 ErrQueueFull，得到 %v", err)
+	}
+
+	// 清理：丢弃填充任务并释放阻塞槽位
+	s.mu.Lock()
+	for prio := range s.queues {
+		for _, j := range s.queues[prio] {
+			close(j.done)
+		}
+		s.queues[prio] = nil
+	}
+	s.mu.Unlock()
+	close(release)
+	if err := <-blockerDone; err != nil {
+		t.Fatalf("阻塞任务 Submit: %v", err)
+	}
+}
+
+// panic 防御：run panic 时 Submit 返回包含 panic 值的错误而非悬挂，
+// 且槽位被归还，后续任务仍可正常执行。
+func TestSchedulerPanicRecovery(t *testing.T) {
+	s := NewScheduler(1)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.Submit(context.Background(), PriorityHigh, func() { panic("boom") })
+	}()
+
+	var err error
+	select {
+	case err = <-errCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("panic 任务导致 Submit 悬挂")
+	}
+	if err == nil || !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("期望包含 panic 值的错误，得到 %v", err)
+	}
+
+	// 槽位未泄漏：后续任务仍能执行
+	ran := make(chan struct{})
+	if err := s.Submit(context.Background(), PriorityHigh, func() { close(ran) }); err != nil {
+		t.Fatalf("panic 后 Submit 失败: %v", err)
+	}
+	select {
+	case <-ran:
+	case <-time.After(2 * time.Second):
+		t.Fatal("panic 后槽位泄漏，任务未执行")
 	}
 }

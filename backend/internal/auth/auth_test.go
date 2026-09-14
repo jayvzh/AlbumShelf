@@ -110,3 +110,74 @@ func TestLogoutInvalidates(t *testing.T) {
 		t.Fatal("登出后的 token 应无效")
 	}
 }
+
+// TestValidateCacheHitWithinTTL 校验结果缓存命中：TTL 内第二次 Validate
+// 不触达底层会话存储（以直接删除底层会话行为可观测手段）。
+func TestValidateCacheHitWithinTTL(t *testing.T) {
+	svc, sessions := newTestService(t)
+
+	token, err := svc.Login("admin", "secret")
+	if err != nil {
+		t.Fatalf("登录失败: %v", err)
+	}
+	if !svc.Validate(token) {
+		t.Fatal("第一次校验应有效")
+	}
+	// 删除底层会话行：第二次校验若回源查询将返回无效
+	if err := sessions.Delete(context.Background(), token); err != nil {
+		t.Fatalf("删除底层会话失败: %v", err)
+	}
+	if !svc.Validate(token) {
+		t.Fatal("TTL 内第二次校验应命中缓存仍有效（未触达底层存储）")
+	}
+}
+
+// TestLogoutInvalidatesCache 登出同步清缓存：Validate 写入缓存后登出，
+// 旧 token 立即失效（缓存不挡）。
+func TestLogoutInvalidatesCache(t *testing.T) {
+	svc, sessions := newTestService(t)
+
+	token, err := svc.Login("admin", "secret")
+	if err != nil {
+		t.Fatalf("登录失败: %v", err)
+	}
+	if !svc.Validate(token) {
+		t.Fatal("登录后的 token 应有效")
+	}
+	// 先证明缓存已写入：删底层行后仍应命中缓存有效
+	if err := sessions.Delete(context.Background(), token); err != nil {
+		t.Fatalf("删除底层会话失败: %v", err)
+	}
+	if !svc.Validate(token) {
+		t.Fatal("删行后校验应命中缓存仍有效（缓存应已写入）")
+	}
+	// 登出后缓存应被清除：立即校验返回 false
+	if err := svc.Logout(token); err != nil {
+		t.Fatalf("登出失败: %v", err)
+	}
+	if svc.Validate(token) {
+		t.Fatal("登出后校验缓存应已清除，Validate 应返回 false")
+	}
+}
+
+// TestValidateCacheExpiry TTL 过期：注入短 TTL，过期后应回源查询
+// （底层行已删，返回 false）。
+func TestValidateCacheExpiry(t *testing.T) {
+	svc, sessions := newTestService(t)
+	svc.cacheTTL = 20 * time.Millisecond
+
+	token, err := svc.Login("admin", "secret")
+	if err != nil {
+		t.Fatalf("登录失败: %v", err)
+	}
+	if !svc.Validate(token) {
+		t.Fatal("第一次校验应有效")
+	}
+	if err := sessions.Delete(context.Background(), token); err != nil {
+		t.Fatalf("删除底层会话失败: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if svc.Validate(token) {
+		t.Fatal("缓存过期后应回源查询，已删除的会话应无效")
+	}
+}

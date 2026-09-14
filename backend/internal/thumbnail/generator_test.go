@@ -121,3 +121,38 @@ func TestGenerateInvalidArgs(t *testing.T) {
 		t.Fatal("未知变体应返回错误")
 	}
 }
+
+// 从 preview 产物派生 thumb(300)：输出 JPEG、宽高 ≤300 且保持 4:3 比例。
+func TestGenerateThumbFromPreview(t *testing.T) {
+	src := writeTestJPEG(t, t.TempDir(), 1600, 1200)
+	previewData, _, _, err := Generate(src, model.VariantPreview, 0)
+	if err != nil {
+		t.Fatalf("生成 preview 失败: %v", err)
+	}
+	previewPath := filepath.Join(t.TempDir(), "preview.jpg")
+	if err := os.WriteFile(previewPath, previewData, 0o644); err != nil {
+		t.Fatalf("写入 preview 文件失败: %v", err)
+	}
+
+	data, w, h, err := GenerateThumbFromPreview(previewPath, 300)
+	if err != nil {
+		t.Fatalf("GenerateThumbFromPreview 失败: %v", err)
+	}
+	if !isJPEG(data) {
+		t.Fatal("输出不是 JPEG（缺少 FFD8 魔数）")
+	}
+	if w > 300 || h > 300 {
+		t.Fatalf("输出超出 300×300 盒: %dx%d", w, h)
+	}
+	if w*3 != h*4 {
+		t.Fatalf("比例未保持 4:3: %dx%d", w, h)
+	}
+}
+
+// 从 preview 派生 thumb 时非法桶必须报错。
+func TestGenerateThumbFromPreviewInvalidBucket(t *testing.T) {
+	previewPath := writeTestJPEG(t, t.TempDir(), 800, 600)
+	if _, _, _, err := GenerateThumbFromPreview(previewPath, 250); err == nil {
+		t.Fatal("非法桶 250 应返回错误")
+	}
+}

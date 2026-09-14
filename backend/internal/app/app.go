@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +64,22 @@ func New(cfg *config.Config) *App {
 	cacheRepo := repository.NewImageCacheRepository(db)
 	thumbnailSvc := service.NewThumbnailService(fs, cfg.DataDir, cacheRepo,
 		thumbnail.NewScheduler(cfg.ThumbConcurrency))
+
+	// 并发配置自检：缩略图调度器就绪后输出生效值。VIPS_CONCURRENCY 的解析逻辑
+	// 与 thumbnail 包 libvips 初始化保持一致（默认 CPU 核数），二者乘积超过 CPU
+	// 核数时提示超订阅。
+	cpus := runtime.NumCPU()
+	vipsWorkers := cpus
+	if n, err := strconv.Atoi(os.Getenv("VIPS_CONCURRENCY")); err == nil && n >= 1 {
+		vipsWorkers = n
+	}
+	log.Printf("缩略图并发配置: THUMB_CONCURRENCY=%d, VIPS_CONCURRENCY=%d, CPU 核数=%d",
+		cfg.ThumbConcurrency, vipsWorkers, cpus)
+	if cfg.ThumbConcurrency*vipsWorkers > cpus {
+		log.Printf("[WARN] 缩略图并发超订阅: THUMB_CONCURRENCY(%d) × VIPS_CONCURRENCY(%d) = %d > CPU 核数 %d，建议两者乘积约等于 CPU 核数",
+			cfg.ThumbConcurrency, vipsWorkers, cfg.ThumbConcurrency*vipsWorkers, cpus)
+	}
+
 	imageSvc := service.NewImageService(fs, thumbnailSvc)
 	imageH := handler.NewImageHandler(imageSvc)
 	thumbnailH := handler.NewThumbnailHandler(thumbnailSvc)

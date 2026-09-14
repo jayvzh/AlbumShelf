@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"albumshelf/backend/internal/repository"
 )
@@ -61,6 +63,8 @@ func (s *CacheService) Stats() (*CacheStats, error) {
 //  2. 磁盘缓存文件不在索引 cache_path 集合 → 删文件（索引行已删但旧文件遗留）。
 func (s *CacheService) CleanupOrphans() (*CacheCleanupResult, error) {
 	result := &CacheCleanupResult{}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	items, err := s.cache.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
@@ -98,6 +102,8 @@ func (s *CacheService) CleanupOrphans() (*CacheCleanupResult, error) {
 // CleanupAll 清空两个缓存目录内容 + 清空 image_cache 索引。
 func (s *CacheService) CleanupAll() (*CacheCleanupResult, error) {
 	result := &CacheCleanupResult{}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	// indexed 为 nil → 全部文件视为未跟踪，整目录清空
 	removed, bytes, err := removeUntrackedFiles(s.dataDir, nil)
 	if err != nil {

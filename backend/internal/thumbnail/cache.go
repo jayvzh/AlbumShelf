@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"albumshelf/backend/internal/model"
 )
+
+// ensuredDirs 记录已确保创建过的缓存目录（进程内记忆化）：
+// CachePath 在每次请求路径上调用，避免对同一目录反复执行 MkdirAll 系统调用。
+var ensuredDirs sync.Map
 
 // 缓存键与失效语义（与 DATA_MODEL §3 判定规则一致）：
 // 键 = sha1(sourcePath|mtime|size|variant|sizeBucket)，将原图 mtime 与 size 编码进文件名。
@@ -36,10 +41,24 @@ func CachePath(dataDir, sourcePath, variant string, sizeBucket int, mtime int64,
 	}
 	sum := sha1.Sum([]byte(fmt.Sprintf("%s|%d|%d|%s|%d", sourcePath, mtime, size, variant, sizeBucket)))
 	dir := filepath.Join(dataDir, "cache", sub)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("创建缓存目录失败: %w", err)
+	if err := ensureDir(dir); err != nil {
+		return "", err
 	}
 	return filepath.Join(dir, hex.EncodeToString(sum[:])+".jpg"), nil
+}
+
+// ensureDir 确保缓存目录存在：进程内记忆化，已成功创建过的目录不再重复 MkdirAll。
+// 并发安全：先查后建，仅创建成功后记录（创建失败不缓存失败状态，下次调用重试）；
+// 并发下最多重复执行幂等的 MkdirAll，无副作用。
+func ensureDir(dir string) error {
+	if _, ok := ensuredDirs.Load(dir); ok {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("创建缓存目录失败: %w", err)
+	}
+	ensuredDirs.Store(dir, struct{}{})
+	return nil
 }
 
 // WriteAtomic 原子写入缓存文件：先写同目录临时文件再 rename 覆盖，

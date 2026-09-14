@@ -46,6 +46,15 @@ func Generate(sourcePath string, variant string, sizeBucket int) ([]byte, int, i
 	return jpegBytes, img.Width(), img.Height(), nil
 }
 
+// GenerateThumbFromPreview 从已生成的 preview 缓存 JPEG 二次缩放生成 thumb 桶产物：
+// preview 已是长边 ≤ PreviewLongEdge 的小图，从中派生 thumb 可避免对原图的重复大图解码。
+// vips_thumbnail 从文件路径加载时对 JPEG 自动 shrink-on-load（按 preview 长边与
+// 目标桶的比例计算整数预缩因子，仅解码必要像素），缩放/导出参数与 Generate 完全一致
+//（fit 盒、不放大、q80、baseline）。
+func GenerateThumbFromPreview(previewPath string, sizeBucket int) ([]byte, int, int, error) {
+	return Generate(previewPath, model.VariantThumb, sizeBucket)
+}
+
 // boxSize 解析变体对应的 fit 盒边长。
 func boxSize(variant string, sizeBucket int) (int, error) {
 	switch variant {

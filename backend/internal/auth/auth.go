@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"sync"
 	"time"
 
 	"albumshelf/backend/internal/model"
@@ -24,6 +25,9 @@ const CookieName = "session_token"
 // tokenBytes 随机 token 字节数（hex 编码后 64 字符）。
 const tokenBytes = 32
 
+// validateCacheTTL 校验结果缓存 TTL（进程内，减轻每请求会话表查询）。
+const validateCacheTTL = 30 * time.Second
+
 // 认证服务 sentinel 错误。
 var (
 	// ErrInvalidCredentials 用户名或密码错误（未知用户与错误密码同码，防时序区分）。
@@ -38,15 +42,22 @@ type Service struct {
 	password string
 	maxAge   time.Duration
 	sessions *repository.SessionRepository
+
+	// Validate 结果缓存：token → 过期时间（mutex 保护，读取时惰性过期）。
+	cacheMu     sync.Mutex
+	cacheTTL    time.Duration
+	validTokens map[string]time.Time
 }
 
 // New 构造认证服务。password 为空表示认证未启用。
 func New(username, password string, maxAge time.Duration, sessions *repository.SessionRepository) *Service {
 	return &Service{
-		username: username,
-		password: password,
-		maxAge:   maxAge,
-		sessions: sessions,
+		username:    username,
+		password:    password,
+		maxAge:      maxAge,
+		sessions:    sessions,
+		cacheTTL:    validateCacheTTL,
+		validTokens: make(map[string]time.Time),
 	}
 }
 
@@ -87,25 +98,65 @@ func (s *Service) Login(username, password string) (string, error) {
 	return token, nil
 }
 
-// Logout 删除指定会话（Cookie 清理由 handler 负责）。
+// Logout 删除指定会话（Cookie 清理由 handler 负责），并同步失效其校验缓存。
 func (s *Service) Logout(token string) error {
-	return s.sessions.Delete(ctx, token)
+	if err := s.sessions.Delete(ctx, token); err != nil {
+		return err
+	}
+	s.invalidateToken(token)
+	return nil
 }
 
 // Validate 判断 token 是否为有效未过期会话；命中的过期记录惰性删除。
+// 校验成功写入进程内缓存（TTL 30s）；失败不缓存且即时清除该 token 缓存条目。
 func (s *Service) Validate(token string) bool {
 	if token == "" {
 		return false
 	}
+	if valid, ok := s.cachedValid(token); ok {
+		return valid
+	}
 	sess, err := s.sessions.GetByToken(ctx, token)
 	if err != nil || sess == nil {
+		s.invalidateToken(token)
 		return false
 	}
 	if !sess.IsValid(time.Now()) {
 		_ = s.sessions.Delete(ctx, token)
+		s.invalidateToken(token)
 		return false
 	}
+	s.rememberValid(token)
 	return true
+}
+
+// cachedValid 查询校验缓存；命中的过期条目惰性删除。
+func (s *Service) cachedValid(token string) (valid, ok bool) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	exp, ok := s.validTokens[token]
+	if !ok {
+		return false, false
+	}
+	if time.Now().After(exp) {
+		delete(s.validTokens, token)
+		return false, false
+	}
+	return true, true
+}
+
+// rememberValid 记录校验成功缓存条目。
+func (s *Service) rememberValid(token string) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	s.validTokens[token] = time.Now().Add(s.cacheTTL)
+}
+
+// invalidateToken 删除 token 的校验缓存（校验失败或登出时即时失效）。
+func (s *Service) invalidateToken(token string) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	delete(s.validTokens, token)
 }
 
 // newToken 生成 32 字节 crypto/rand 的 hex 编码 token。

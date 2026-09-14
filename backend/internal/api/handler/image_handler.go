@@ -50,8 +50,16 @@ func (h *ImageHandler) Get(c *gin.Context) {
 		contentType = "image/jpeg"
 	}
 
+	// 缓存策略按实际变体区分：preview 产物路径已编码原图 mtime/size（内容寻址），
+	// 可安全 immutable 一年；preview 生成失败回退原图的响应内容随生成恢复而变化，
+	// 必须 no-cache + ETag 每次再校验，避免浏览器把原图体积的回退响应长期缓存。
+	cacheControl := "no-cache"
+	if actualVariant == model.VariantPreview {
+		cacheControl = "public, max-age=31536000, immutable"
+	}
+
 	c.Header("Content-Type", contentType)
-	c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	c.Header("Cache-Control", cacheControl)
 	c.Header("ETag", service.ETag(info))
 	c.Header("X-Image-Variant", actualVariant)
 

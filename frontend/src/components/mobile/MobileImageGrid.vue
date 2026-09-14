@@ -20,12 +20,12 @@ const favorites = useFavoritesStore()
 const bustedSrcs = ref<Record<string, string>>({})
 
 function thumbSrc(image: ImageFile): string {
-  const base = buildThumbnailUrl(image, 300)
+  const base = buildThumbnailUrl(image)
   return bustedSrcs.value[base] ?? base
 }
 
 function onImgError(image: ImageFile) {
-  const base = buildThumbnailUrl(image, 300)
+  const base = buildThumbnailUrl(image)
   if (bustedSrcs.value[base]) return
   bustedSrcs.value[base] = withCacheBust(base)
 }

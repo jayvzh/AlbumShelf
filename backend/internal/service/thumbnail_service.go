@@ -28,6 +28,24 @@ type ThumbnailService struct {
 
 	// inflight 进行中的生成任务：缓存键 → *flight
 	inflight sync.Map
+
+	// negCache 生成失败负缓存：缓存键（cachePath）→ negativeEntry。
+	// TTL 内同键请求直接返回记录的错误，不再进入调度器触发注定失败的 libvips 解码；
+	// TTL 过期自动失效允许重试。取消类错误不入缓存（见 negativeCacheTTL 注释）。
+	negCache sync.Map
+
+	// negTTL 负缓存存活时长，测试可注入短值。仅进程内状态，不影响正确性。
+	negTTL time.Duration
+}
+
+// negativeCacheTTL 生成失败负缓存时长：覆盖连续翻页窗口内对同一坏图的反复请求，
+// 过短则退化为无负缓存，过长则短暂故障（如磁盘瞬满）后迟迟不重试。
+const negativeCacheTTL = 60 * time.Second
+
+// negativeEntry 负缓存条目：失败时间起算，expireAt 后视为过期。
+type negativeEntry struct {
+	err      error
+	expireAt time.Time
 }
 
 // flight 表示一次进行中的缓存生成；done 关闭即产物已落盘、生成已失败或被取消。
@@ -37,7 +55,7 @@ type flight struct {
 
 // NewThumbnailService 构造 ThumbnailService。
 func NewThumbnailService(fs *filesystem.LocalFilesystem, dataDir string, repo *repository.ImageCacheRepository, sched *thumbnail.Scheduler) *ThumbnailService {
-	return &ThumbnailService{fs: fs, dataDir: dataDir, repo: repo, sched: sched}
+	return &ThumbnailService{fs: fs, dataDir: dataDir, repo: repo, sched: sched, negTTL: negativeCacheTTL}
 }
 
 // GetThumb 返回 thumb 变体缩略图：命中缓存直接读文件，未命中生成后落盘返回。
@@ -74,7 +92,8 @@ func (s *ThumbnailService) GetPreview(ctx context.Context, path string, prio thu
 		return model.Image{}, nil, "", err
 	}
 
-	log.Printf("[thumbnail] preview 生成失败，回退原图 %s: %v", path, err)
+	// 首次失败已在 deliver 记录负缓存时打过日志；负缓存 TTL 内的重复请求
+	// 快速失败走此回退，保持静默，避免坏图反复浏览时刷屏。
 	origImg, origFile, openErr := s.fs.OpenImage(path)
 	if openErr != nil {
 		return model.Image{}, nil, "", openErr
@@ -113,6 +132,12 @@ func (s *ThumbnailService) deliver(ctx context.Context, path, variant string, si
 			log.Printf("[thumbnail] 缓存命中但打开失败，转重新生成: %s", cachePath)
 		}
 
+		// 负缓存命中（该键近期刚生成失败且未过期）：直接返回记录的错误，
+		// 不再入队/竞选执行者，避免反复调度注定失败的 libvips 解码。
+		if err := s.checkNegative(cachePath); err != nil {
+			return model.Image{}, nil, err
+		}
+
 		f := &flight{done: make(chan struct{})}
 		actual, loaded := s.inflight.LoadOrStore(cachePath, f)
 		if loaded {
@@ -124,48 +149,118 @@ func (s *ThumbnailService) deliver(ctx context.Context, path, variant string, si
 			continue
 		}
 
-		// 执行者：经调度器排队执行 生成 → 落盘 → 索引登记 → 唤醒等待者。
+		// 执行者：经调度器排队执行 生成 → 落盘 → 唤醒等待者；索引登记移出生成槽，
+		// 由 Submit 返回（槽位已释放）后的 fire-and-forget goroutine best-effort 补记。
 		// Delete 必须先于 close(done)：若反过来，等待者可能 load 到已关闭的旧 flight
 		// 并与新 flight 竞争前空转（热自旋）。
 		enqueuedAt := time.Now()
 		var genFile *os.File
+		var genW, genH int
 		var genErr error
 		err := s.sched.Submit(ctx, prio, func() {
 			queueWait := time.Since(enqueuedAt)
 			start := time.Now()
-			genFile, genErr = s.generate(path, variant, sizeBucket, info, cachePath)
+			genFile, genW, genH, genErr = s.generate(path, variant, sizeBucket, info, cachePath)
 			log.Printf("[thumbnail] %s %s 生成 %s（排队 %s）",
 				variant, path, time.Since(start).Round(time.Millisecond), queueWait.Round(time.Millisecond))
 		})
 		s.inflight.Delete(cachePath)
+		// 记录须先于 close(done)：等待者被唤醒后回循环顶部即查负缓存，须能看到该条目。
+		// 首次生成失败在此打一次日志（含回退语义：preview 由 GetPreview 回退原图、
+		// thumb 由 handler 返回 500）；负缓存 TTL 内的重复请求快速失败，不再刷屏。
+		if err == nil && genErr != nil {
+			log.Printf("[thumbnail] %s %s 生成失败（负缓存 TTL 内同键请求快速失败）: %v",
+				variant, path, genErr)
+			s.recordNegative(cachePath, genErr)
+		}
 		close(f.done)
 
 		if err != nil {
 			// 排队中被 ctx 取消：run 未执行，直接把取消带给调用方
 			return model.Image{}, nil, err
 		}
+		if genErr == nil {
+			// 索引登记不占用生成槽：失败仅记日志，不阻断请求（缓存文件已生成，可用性优先）
+			go s.index(path, variant, cachePath, info, genW, genH)
+		}
 		return info, genFile, genErr
 	}
 }
 
-// generate libvips 生成变体产物并原子写入缓存文件，登记索引后打开缓存文件返回。
+// recordNegative 记录生成失败负缓存；取消类错误不入缓存——它们不代表图坏，
+// 请求取消（翻页/切目录）后同键的其他请求仍应正常尝试生成。
+func (s *ThumbnailService) recordNegative(cachePath string, err error) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
+	ttl := s.negTTL
+	if ttl <= 0 {
+		ttl = negativeCacheTTL
+	}
+	s.negCache.Store(cachePath, negativeEntry{err: err, expireAt: time.Now().Add(ttl)})
+}
+
+// checkNegative 返回未过期负缓存记录的错误；过期即清除并放行重新生成。
+func (s *ThumbnailService) checkNegative(cachePath string) error {
+	v, ok := s.negCache.Load(cachePath)
+	if !ok {
+		return nil
+	}
+	entry := v.(negativeEntry)
+	if time.Now().After(entry.expireAt) {
+		s.negCache.Delete(cachePath)
+		return nil
+	}
+	return entry.err
+}
+
+// generate 生成变体产物并原子写入缓存文件，打开缓存文件返回（索引由槽外补记）。
 // 文件句柄交由调用方（handler）关闭。
-func (s *ThumbnailService) generate(path, variant string, sizeBucket int, info model.Image, cachePath string) (*os.File, error) {
-	// GetMetadata 已校验 info.Path 在 IMAGE_ROOT 内，Join 还原磁盘绝对路径供 libvips 读取
-	data, width, height, err := thumbnail.Generate(filepath.Join(s.fs.Root(), info.Path), variant, sizeBucket)
+// 槽内仅保留 libvips 解码 + 落盘 + 打开；thumb 变体优先从同源 preview 缓存派生，
+// 避免重复解码原图大图。
+func (s *ThumbnailService) generate(path, variant string, sizeBucket int, info model.Image, cachePath string) (*os.File, int, int, error) {
+	data, width, height, err := s.render(path, variant, sizeBucket, info)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 	if err := thumbnail.WriteAtomic(cachePath, data); err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
-	s.index(path, variant, cachePath, info, width, height)
 
 	file, err := os.Open(cachePath)
 	if err != nil {
-		return nil, fmt.Errorf("打开缓存文件失败 %s: %w", cachePath, err)
+		return nil, 0, 0, fmt.Errorf("打开缓存文件失败 %s: %w", cachePath, err)
 	}
-	return file, nil
+	return file, width, height, nil
+}
+
+// render 产出变体图像数据：thumb 变体在同源 preview 缓存存在且新鲜时优先从 preview
+// 派生（省去原图解码），preview 缺失或派生失败均回退原图生成（记日志，不向上抛错）；
+// 缓存键与失效语义不变——派生用与原图同一 mtime/size 构造的 preview 缓存键定位。
+func (s *ThumbnailService) render(path, variant string, sizeBucket int, info model.Image) ([]byte, int, int, error) {
+	if variant == model.VariantThumb {
+		if previewPath, ok := s.freshPreviewPath(path, info); ok {
+			data, w, h, err := thumbnail.GenerateThumbFromPreview(previewPath, sizeBucket)
+			if err == nil {
+				return data, w, h, nil
+			}
+			log.Printf("[thumbnail] preview 派生 thumb 失败，回退原图生成 %s: %v", path, err)
+		}
+	}
+	// GetMetadata 已校验 info.Path 在 IMAGE_ROOT 内，Join 还原磁盘绝对路径供 libvips 读取
+	return thumbnail.Generate(filepath.Join(s.fs.Root(), info.Path), variant, sizeBucket)
+}
+
+// freshPreviewPath 判断同源 preview 缓存是否可用于派生：用与 prepare 一致的
+// mtime/size/变体/桶参数构造 preview 缓存键（原图变化 → 键变 → 必然 miss），
+// 再按 IsFresh 判定文件存在且完整。
+func (s *ThumbnailService) freshPreviewPath(path string, info model.Image) (string, bool) {
+	previewPath, err := thumbnail.CachePath(s.dataDir, path, model.VariantPreview,
+		model.PreviewLongEdge, info.ModifiedAt.UnixNano(), info.Size)
+	if err != nil {
+		return "", false
+	}
+	return previewPath, thumbnail.IsFresh(previewPath)
 }
 
 // index 登记缩略图索引（best-effort）：先删同源同变体旧记录再 Upsert（顺序不能反，
