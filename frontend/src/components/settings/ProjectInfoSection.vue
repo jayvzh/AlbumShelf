@@ -8,7 +8,7 @@ import { APP_AUTHOR, APP_NAME, APP_REPO_URL, APP_VERSION } from '../../constants
   <section class="rounded-lg border border-line bg-panel px-4 py-3">
     <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
       <span class="text-body">{{ APP_NAME }}</span>
-      <span>v{{ APP_VERSION }}</span>
+      <span>{{ APP_VERSION }}</span>
       <span>by {{ APP_AUTHOR }}</span>
       <a
         :href="APP_REPO_URL"

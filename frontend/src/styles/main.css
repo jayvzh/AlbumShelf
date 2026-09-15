@@ -20,6 +20,7 @@
   --app-faint: #a1a1aa; /* 提示文本 */
   --app-accent-text: #d97706; /* 强调文本（选中/高亮） */
   --app-accent-focus: #d97706; /* 选中边框/焦点高亮（浅色主题用深琥珀，保证白底对比度） */
+  --app-protected: #a16207; /* 私有目录名（黄） */
   --app-scrollbar: #d4d4d8;
 }
 
@@ -38,6 +39,7 @@
   --app-faint: #71717a;
   --app-accent-text: #fcd34d;
   --app-accent-focus: #fbbf24; /* 选中边框/焦点高亮（深色主题用亮琥珀） */
+  --app-protected: #facc15; /* 私有目录名（黄） */
   --app-scrollbar: #3f3f46;
 }
 
@@ -56,4 +58,5 @@
   --color-faint: var(--app-faint);
   --color-accent-text: var(--app-accent-text);
   --color-accent-focus: var(--app-accent-focus);
+  --color-protected: var(--app-protected);
 }

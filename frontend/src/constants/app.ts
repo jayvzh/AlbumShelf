@@ -14,7 +14,7 @@ export const APP_NAME = `${APP_BASE_NAME}・${APP_NAME_SUFFIX}`
 export const APP_AUTHOR = 'JayvZh'
 
 /** 产品版本（设置页 / 帮助页展示） */
-export const APP_VERSION = 'v1.0.0'
+export const APP_VERSION = 'v1.0.9'
 
 /** 项目仓库地址 */
 export const APP_REPO_URL = 'https://github.com/jayvzh/AlbumShelf'
