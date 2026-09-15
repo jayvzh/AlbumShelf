@@ -46,6 +46,12 @@ func (s *ImageService) GetInfo(path string) (model.Image, error) {
 	return s.fs.GetMetadata(path)
 }
 
+// NoteFrontendWarmTraffic 记录一次前端低优先级（X-Load-Priority: low）HTTP 请求到达，
+// 透传给生成调度器；供后台预热器判定前端闲时预热是否仍在推进。仅 handler 层调用。
+func (s *ImageService) NoteFrontendWarmTraffic() {
+	s.thumbnails.NoteFrontendWarmTraffic()
+}
+
 // ETag 基于 mtime+size 生成强 ETag（含双引号），/image 与 /thumbnail 共用同一规范。
 func ETag(img model.Image) string {
 	return fmt.Sprintf("\"%d-%d\"", img.ModifiedAt.UnixNano(), img.Size)

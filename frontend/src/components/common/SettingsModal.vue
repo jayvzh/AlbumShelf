@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 设置弹窗：与 HelpModal 同形态（点击遮罩/✕ 关闭，不监听 Esc：避免与大图浏览的 Esc 逐级返回冲突）；
-// 纵向五区块复用设置 Section 组件（项目信息 / 私有目录 / 缓存管理 / 配置导入导出 / 账户与系统信息）
+// 纵向五区块复用设置 Section 组件（私有目录 / 缓存管理 / 配置导入导出 / 账户与系统信息 / 项目信息页脚）
 import ProjectInfoSection from '../settings/ProjectInfoSection.vue'
 import ProtectedFoldersSection from '../settings/ProtectedFoldersSection.vue'
 import CacheSection from '../settings/CacheSection.vue'
@@ -35,11 +35,11 @@ const emit = defineEmits<{ close: [] }>()
       </header>
 
       <div class="flex-1 space-y-4 overflow-y-auto px-4 pt-4 pb-10">
-        <ProjectInfoSection />
         <ProtectedFoldersSection />
         <CacheSection />
         <ConfigSection />
         <AccountSection />
+        <ProjectInfoSection />
       </div>
     </div>
   </div>

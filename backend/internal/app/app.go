@@ -77,10 +77,15 @@ func New(cfg *config.Config) *App {
 			cfg.ThumbConcurrency, vipsWorkers, cfg.ThumbConcurrency*vipsWorkers, procs)
 	}
 
-	// 后台预热器：空闲低优先级补齐全库 thumbs（成功后级联趁热补 preview），
-	// 首次进入任何目录即命中缓存；随进程生命周期运行，无需优雅退出。
+	// 后台缓存预热器：级别持久化于 app_settings（设置页可运行时更改并即时生效），
+	// 前台浏览时自动暂停、闲时才推进；env THUMB_WARMER=0 彻底关闭运行
+	//（对象仍构造，供设置 API 读写级别）。
+	appSettingsRepo := repository.NewAppSettingsRepository(db)
+	warmLevel := service.LoadWarmLevel(context.Background(), appSettingsRepo)
+	warmer := service.NewCacheWarmer(fs, thumbnailSvc, appSettingsRepo,
+		30*time.Minute, warmLevel, cfg.ThumbWarmer)
 	if cfg.ThumbWarmer {
-		go service.NewThumbWarmer(fs, thumbnailSvc, 30*time.Minute).Run(context.Background())
+		go warmer.Run(context.Background())
 	}
 
 	imageSvc := service.NewImageService(fs, thumbnailSvc)
@@ -88,7 +93,7 @@ func New(cfg *config.Config) *App {
 	thumbnailH := handler.NewThumbnailHandler(thumbnailSvc)
 
 	cacheSvc := service.NewCacheService(cfg.DataDir, cfg.ImageRoot, cacheRepo)
-	cacheH := handler.NewCacheHandler(cacheSvc)
+	cacheH := handler.NewCacheHandler(cacheSvc, warmer)
 
 	favoriteRepo := repository.NewFavoriteRepository(db)
 	favoriteSvc := service.NewFavoriteService(fs, favoriteRepo)

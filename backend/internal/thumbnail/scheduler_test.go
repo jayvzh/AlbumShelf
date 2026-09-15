@@ -229,6 +229,32 @@ func TestSchedulerQueueFull(t *testing.T) {
 	}
 }
 
+// 前端低优流量打点：从未打点视为一直空闲；打点后 FrontendWarmIdleFor 接近零；
+// 与高优先级活跃度（FrontendIdleFor）互不影响——两条判定服务于不同的让路语义。
+func TestSchedulerFrontendWarmTrafficTracking(t *testing.T) {
+	s := NewScheduler(1)
+
+	if s.FrontendWarmIdleFor() < time.Hour {
+		t.Fatal("从未打点应视为一直空闲（返回最大时长）")
+	}
+
+	s.NoteFrontendWarmTraffic()
+	if idle := s.FrontendWarmIdleFor(); idle > time.Second {
+		t.Fatalf("刚打点后空闲时长应接近零: %v", idle)
+	}
+	if s.FrontendIdleFor() < time.Hour {
+		t.Fatal("低优打点不应影响高优先级活跃判定")
+	}
+
+	// 反向：高优先级 Submit 不触碰低优流量打点
+	if err := s.Submit(context.Background(), PriorityHigh, func() {}); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if s.FrontendIdleFor() > time.Second {
+		t.Fatal("高优提交后 FrontendIdleFor 应接近零")
+	}
+}
+
 // panic 防御：run panic 时 Submit 返回包含 panic 值的错误而非悬挂，
 // 且槽位被归还，后续任务仍可正常执行。
 func TestSchedulerPanicRecovery(t *testing.T) {

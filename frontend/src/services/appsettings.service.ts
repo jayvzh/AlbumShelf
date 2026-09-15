@@ -1,5 +1,5 @@
 import { request } from './api'
-import type { CacheStats, CleanupResult, ConfigImportResult } from '../types/appsettings'
+import type { CacheStats, CleanupResult, ConfigImportResult, WarmLevel, WarmStatus } from '../types/appsettings'
 
 // 私有目录列表（GET /protected-folders）
 export function getProtectedFolders(): Promise<string[]> {
@@ -28,6 +28,29 @@ export function cleanupOrphanCaches(): Promise<CleanupResult> {
 // 清理全部缓存（POST /cache/cleanup/all）
 export function cleanupAllCaches(): Promise<CleanupResult> {
   return request<CleanupResult>('/cache/cleanup/all', { method: 'POST' })
+}
+
+// 清空单变体缓存（POST /cache/cleanup/variant；thumb 或 preview 全部清空）
+export function cleanupVariantCaches(variant: 'thumb' | 'preview'): Promise<CleanupResult> {
+  return request<CleanupResult>('/cache/cleanup/variant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ variant }),
+  })
+}
+
+// 预热器状态快照（GET /cache/warm/status）
+export function getWarmStatus(): Promise<WarmStatus> {
+  return request<WarmStatus>('/cache/warm/status')
+}
+
+// 更新预热级别（PUT /cache/warm/settings；持久化并即时生效，后端按新级别重新扫描）
+export function setWarmLevel(level: WarmLevel): Promise<WarmStatus> {
+  return request<WarmStatus>('/cache/warm/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
+  })
 }
 
 // 配置导出下载地址（响应带 attachment 头，浏览器直接下载；不走 fetch 以保留下载行为）

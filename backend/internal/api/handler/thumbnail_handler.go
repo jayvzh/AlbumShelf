@@ -11,6 +11,7 @@ import (
 	"albumshelf/backend/internal/filesystem"
 	"albumshelf/backend/internal/model"
 	"albumshelf/backend/internal/service"
+	"albumshelf/backend/internal/thumbnail"
 )
 
 // ThumbnailHandler 处理缩略图 API。
@@ -24,6 +25,9 @@ func NewThumbnailHandler(svc *service.ThumbnailService) *ThumbnailHandler {
 }
 
 // Get 处理 GET /api/v1/thumbnail，流式返回缩略图 JPEG。
+// 请求头 X-Load-Priority: low（前端目录预热）将生成任务降为低优先级并打点
+// 前端预热流量（后台预热器据此让路）；缺省为高优先级（用户可见的胶片条/网格
+// 懒加载缩略图）。同源自定义头不改变 URL，浏览器 HTTP 缓存键不受影响。
 func (h *ThumbnailHandler) Get(c *gin.Context) {
 	req := request.NewThumbnailRequest(c)
 	if req.Path == "" {
@@ -31,7 +35,13 @@ func (h *ThumbnailHandler) Get(c *gin.Context) {
 		return
 	}
 
-	info, file, err := h.svc.GetThumb(c.Request.Context(), req.Path, req.Width)
+	prio := thumbnail.PriorityHigh
+	if c.GetHeader("X-Load-Priority") == "low" {
+		prio = thumbnail.PriorityLow
+		h.svc.NoteFrontendWarmTraffic()
+	}
+
+	info, file, err := h.svc.GetThumb(c.Request.Context(), req.Path, req.Width, prio)
 	if err != nil {
 		switch {
 		case errors.Is(err, filesystem.ErrInvalidPath),

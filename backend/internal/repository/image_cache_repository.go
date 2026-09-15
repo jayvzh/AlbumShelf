@@ -115,3 +115,12 @@ func (r *ImageCacheRepository) DeleteAll(ctx context.Context) error {
 	}
 	return nil
 }
+
+// DeleteByVariant 删除指定变体（thumb/preview）的全部索引行（按变体清理用）。
+func (r *ImageCacheRepository) DeleteByVariant(ctx context.Context, variant string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM image_cache WHERE variant = ?`, variant)
+	if err != nil {
+		return fmt.Errorf("按变体删除 image_cache 失败: %w", err)
+	}
+	return nil
+}

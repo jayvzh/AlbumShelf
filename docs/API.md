@@ -63,6 +63,9 @@
 | GET | `/api/v1/cache/stats` | 缓存体积统计 | 7 |
 | POST | `/api/v1/cache/cleanup/orphan` | 清理孤儿缓存（需登录） | 7 |
 | POST | `/api/v1/cache/cleanup/all` | 清理全部缓存（需登录） | 7 |
+| POST | `/api/v1/cache/cleanup/variant` | 清空单变体缓存 thumb/preview（需登录） | 10 |
+| GET | `/api/v1/cache/warm/status` | 后台预热级别与进度快照（需登录） | 10 |
+| PUT | `/api/v1/cache/warm/settings` | 更新预热级别（需登录，即时生效） | 10 |
 | GET | `/api/v1/config/export` | 导出配置（附件下载，需登录） | 7 |
 | POST | `/api/v1/config/import` | 导入配置（按路径 upsert 合并，需登录） | 7 |
 | GET | `/api/v1/setup/status` | 初始化状态检测（公开、只读，见 §3.13） | 8 |
@@ -142,6 +145,10 @@ GET /api/v1/image?path=/Comics/001.jpg&variant=preview&v=17345678901234567
 - 返回图片二进制（正确的 Content-Type）
 - **必须返回缓存头**：`Cache-Control: public, max-age=31536000, immutable` + `ETag`（mtime+size）。URL 含版本参数 → 原图/预览图修改后 URL 自然变化，浏览器缓存自动失效
 - 预览图规格：长边 1920px、JPEG q80（服务器持久缓存，见 ARCHITECTURE.md §4.3）
+- 可选请求头 `X-Load-Priority: low`（前端空闲预热：查看器滑窗 WARMUP / 目录预热 DIRWARM）：
+  服务端把生成任务降为低优先级（用户正在查看的图恒为高优先级），并打点"前端预热流量"
+  ——后台全库预热器在两类流量静默前不推进。缺省 = 高优先级。同源自定义头不改变 URL，
+  浏览器 HTTP 缓存键不受影响
 
 ### 3.4 获取图片元信息
 
@@ -176,6 +183,8 @@ GET /api/v1/thumbnail?path=/Comics/001.jpg&width=300
 
 - URL 同样携带 `v={mtime}{size}` 版本参数
 - **必须返回缓存头**：`Cache-Control: public, max-age=31536000, immutable` + `ETag`
+- 可选请求头 `X-Load-Priority: low`（语义同 §3.3）：目录预热 DIRWARM 的缩略图取此通道，
+  服务端低优生成并打点前端预热流量；缺省 = 高优先级（胶片条/网格懒加载的用户可见缩略图）
 - 目标：重访同目录时缩略图全部命中浏览器磁盘缓存，0 网络请求
 
 ### 3.6 文件夹设置
@@ -416,6 +425,62 @@ POST /api/v1/cache/cleanup/all
 | `GET /cache/stats` | 只读统计 | 免登录 |
 | `POST /cache/cleanup/orphan` | 仅清理**孤儿缓存**（源文件已删除的缩略图 / 预览图） | 需登录 |
 | `POST /cache/cleanup/all` | **清空全部**缩略图与预览图缓存 | 需登录 |
+
+### 3.10a 缓存预热管理（Sprint 10）
+
+```http
+GET /api/v1/cache/warm/status
+```
+
+响应（预热器状态快照；phase ∈ idle / warming / paused——paused = 前台浏览中自动暂停）：
+
+```json
+{
+  "data": {
+    "level": "minimal",
+    "phase": "warming",
+    "dirs_total": 120,
+    "dirs_done": 35,
+    "current_dir": "/APS/xxx",
+    "images_planned": 2000,
+    "images_done": 800,
+    "last_pass_end": 0,
+    "enabled": true
+  }
+}
+```
+
+```http
+PUT /api/v1/cache/warm/settings
+```
+
+请求体（level ∈ off / minimal / level1 / level2 / full，非法值 400 INVALID_REQUEST）：
+
+```json
+{ "level": "level1" }
+```
+
+```http
+POST /api/v1/cache/cleanup/variant
+```
+
+请求体（variant ∈ thumb / preview，清空该变体全部缓存文件与索引行；响应同两类清理）：
+
+```json
+{ "variant": "preview" }
+```
+
+级别语义（每目录按文件名序处理前缀，档位按写真/COS 图库典型分布设计）：
+
+| 级别 | 缩略图 | 预览图 |
+| --- | --- | --- |
+| `off` | 不构建 | 不构建 |
+| `minimal`（默认） | 前 20 张 | 前 5 张 |
+| `level1` | 前 100 张 | 前 50 张 |
+| `level2` | 前 300 张 | 前 150 张 |
+| `full` | 全部 | 全部 |
+
+三个端点均需登录。级别持久化于 `app_settings` 表，变更即时生效（触发按新级别重新扫描）；env `THUMB_WARMER=0` 可彻底关闭预热运行（status 中 `enabled=false`）。
 
 ### 3.11 配置导出（Sprint 7）
 

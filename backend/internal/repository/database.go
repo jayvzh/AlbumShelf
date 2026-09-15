@@ -104,6 +104,10 @@ CREATE TABLE IF NOT EXISTS quick_access (
     id         INTEGER PRIMARY KEY,
     path       TEXT UNIQUE NOT NULL,
     created_at DATETIME
+);
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 )`)
 	if err != nil {
 		return fmt.Errorf("初始化 schema 失败: %w", err)

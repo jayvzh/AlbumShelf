@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"albumshelf/backend/internal/model"
 	"albumshelf/backend/internal/repository"
 )
 
@@ -115,6 +116,52 @@ func (s *CacheService) CleanupAll() (*CacheCleanupResult, error) {
 		return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
 	}
 	return result, nil
+}
+
+// CleanupVariant 清空单个变体（thumb/preview）的全部缓存文件与索引行。
+// 非法变体返回错误（handler 映射 400）。
+func (s *CacheService) CleanupVariant(variant string) (*CacheCleanupResult, error) {
+	if variant != model.VariantThumb && variant != model.VariantPreview {
+		return nil, fmt.Errorf("未知变体 %s", variant)
+	}
+	result := &CacheCleanupResult{}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	removed, bytes, err := removeVariantFiles(s.dataDir, variant)
+	if err != nil {
+		return nil, err
+	}
+	result.RemovedFiles = removed
+	result.RemovedBytes = bytes
+	if err := s.cache.DeleteByVariant(ctx, variant); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
+	}
+	return result, nil
+}
+
+// removeVariantFiles 删除指定变体缓存目录下全部文件（保留目录本身，目录不存在视为空）。
+func removeVariantFiles(dataDir, variant string) (int64, int64, error) {
+	var removedFiles, removedBytes int64
+	dir := filepath.Join(dataDir, "cache", variant)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, 0, nil
+		}
+		return 0, 0, fmt.Errorf("读取缓存目录 %s 失败: %w", dir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		size, err := removeFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return 0, 0, err
+		}
+		removedFiles++
+		removedBytes += size
+	}
+	return removedFiles, removedBytes, nil
 }
 
 // scanVariantDir 统计单个缓存子目录（目录不存在视为空）。

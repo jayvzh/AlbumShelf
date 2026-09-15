@@ -57,6 +57,11 @@ func NewRouter(
 		v1.GET("/cache/stats", cacheH.Stats)
 		v1.POST("/cache/cleanup/orphan", requireAuth, cacheH.CleanupOrphans)
 		v1.POST("/cache/cleanup/all", requireAuth, cacheH.CleanupAll)
+		v1.POST("/cache/cleanup/variant", requireAuth, cacheH.CleanupVariant)
+
+		// 缓存预热管理（级别设置与进度查询）
+		v1.GET("/cache/warm/status", requireAuth, cacheH.WarmStatus)
+		v1.PUT("/cache/warm/settings", requireAuth, cacheH.UpdateWarmSettings)
 
 		// 配置导入导出（Sprint 7；均为管理端点需登录）
 		v1.GET("/config/export", requireAuth, configH.Export)

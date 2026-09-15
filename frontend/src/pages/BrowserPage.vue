@@ -13,6 +13,7 @@ import BrandEmptyState from '../components/common/BrandEmptyState.vue'
 import Filmstrip from '../components/filmstrip/Filmstrip.vue'
 import ImageViewer from '../components/viewer/ImageViewer.vue'
 import { formatFileSize } from '../utils/format'
+import { DIR_UNLOCK_THRESHOLD, markDirWarmUnlocked, syncDirWarm } from '../utils/imagePreloader'
 
 const store = useFolderStore()
 const favorites = useFavoritesStore()
@@ -86,6 +87,27 @@ watch(
     if (mode !== 'file' && viewerStore.images.length === 0 && displayImages.value.length > 0) {
       openViewer(displayImages.value, 0)
     }
+  },
+)
+
+// 目录空闲预热（DIRWARM）：目录列表/收藏夹视图/查看器开关变化时重建最低档——
+// 覆盖切目录与关查看器（两者都会 cancelAll 清空队列）后的重挂、开查看器的无害重挂；
+// 收藏夹为跨目录混合列表，无"当前目录"语义，传空数组仅清空该档
+watch(
+  () => [store.images, store.favoritesView, viewerStore.isOpen],
+  () => syncDirWarm(store.favoritesView ? [] : store.images, store.currentPath),
+  { immediate: true },
+)
+
+// 深翻解锁：用户在本目录查看第 101 张及以后（帧内图片索引取 max，双页取右页）
+// → 解锁该目录，DIRWARM 扩为全量 preview + 全量 thumb
+watch(
+  () =>
+    viewerStore.activeImageIndexes.length ? Math.max(...viewerStore.activeImageIndexes) : -1,
+  (maxIndex) => {
+    if (store.favoritesView || maxIndex < DIR_UNLOCK_THRESHOLD) return
+    markDirWarmUnlocked(store.currentPath)
+    syncDirWarm(store.images, store.currentPath)
   },
 )
 </script>

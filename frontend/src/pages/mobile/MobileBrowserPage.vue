@@ -20,6 +20,7 @@ import MobileImageGrid from '../../components/mobile/MobileImageGrid.vue'
 import MobileReader from '../../components/mobile/MobileReader.vue'
 import BrandEmptyState from '../../components/common/BrandEmptyState.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
+import { DIR_UNLOCK_THRESHOLD, markDirWarmUnlocked, syncDirWarm } from '../../utils/imagePreloader'
 import type { ImageFile } from '../../types/file'
 
 const folderStore = useFolderStore()
@@ -103,6 +104,24 @@ watch(
     if (mode !== 'file' && viewerStore.images.length === 0 && displayImages.value.length > 0) {
       openViewer(displayImages.value, 0)
     }
+  },
+)
+
+// 目录空闲预热（DIRWARM）：同桌面 BrowserPage——目录列表/收藏夹视图/阅读器开关
+// 变化时重建最低档（切目录与关阅读器都会 cancelAll 清空队列）；收藏夹传空数组仅清档
+watch(
+  () => [folderStore.images, folderStore.favoritesView, viewerStore.isOpen],
+  () => syncDirWarm(folderStore.favoritesView ? [] : folderStore.images, folderStore.currentPath),
+  { immediate: true },
+)
+
+// 深翻解锁：移动端强制单页（帧索引 == 图片索引），查看第 101 张及以后即解锁该目录
+watch(
+  () => viewerStore.currentFrameIndex,
+  (index) => {
+    if (folderStore.favoritesView || index < DIR_UNLOCK_THRESHOLD) return
+    markDirWarmUnlocked(folderStore.currentPath)
+    syncDirWarm(folderStore.images, folderStore.currentPath)
   },
 )
 

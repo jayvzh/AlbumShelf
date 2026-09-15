@@ -3,6 +3,7 @@ package response
 // ErrorCode 对应 API.md §1 Error Code 枚举。
 const (
 	CodeInvalidPath     = "INVALID_PATH"
+	CodeInvalidRequest  = "INVALID_REQUEST"
 	CodeFileNotFound    = "FILE_NOT_FOUND"
 	CodeFolderNotFound  = "FOLDER_NOT_FOUND"
 	CodeUnsupported     = "UNSUPPORTED_FORMAT"

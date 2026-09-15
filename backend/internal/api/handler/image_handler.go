@@ -35,6 +35,9 @@ func (h *ImageHandler) Get(c *gin.Context) {
 	prio := thumbnail.PriorityHigh
 	if c.GetHeader("X-Load-Priority") == "low" {
 		prio = thumbnail.PriorityLow
+		// 打点前端预热流量（查看器滑窗 WARMUP / 目录预热 DIRWARM）：
+		// 后台预热器据此在前端闲时预热未完成时不推进，全库构建让位当前目录。
+		h.svc.NoteFrontendWarmTraffic()
 	}
 
 	info, file, actualVariant, err := h.svc.Get(c.Request.Context(), req.Path, req.Variant, prio)

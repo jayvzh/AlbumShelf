@@ -49,8 +49,10 @@ type negativeEntry struct {
 }
 
 // flight 表示一次进行中的缓存生成；done 关闭即产物已落盘、生成已失败或被取消。
+// prio 为发起者（执行者）的优先级：更高优先级的请求撞上时可绕过等待双跑插队。
 type flight struct {
 	done chan struct{}
+	prio thumbnail.Priority
 }
 
 // NewThumbnailService 构造 ThumbnailService。
@@ -59,9 +61,10 @@ func NewThumbnailService(fs *filesystem.LocalFilesystem, dataDir string, repo *r
 }
 
 // GetThumb 返回 thumb 变体缩略图：命中缓存直接读文件，未命中生成后落盘返回。
-// width 非合法桶（200/300/500）时按 300 处理。用户正在浏览的页面，恒为高优先级。
+// width 非合法桶（200/300/500）时按 300 处理。prio 由调用方按场景传入：
+// 用户可见请求（胶片条/网格 <img>）恒为高优先级，前端目录预热（X-Load-Priority: low）为低。
 // 错误语义：路径类错误原样返回（handler 映射 4xx），生成失败返回包装错误（handler 映射 500）。
-func (s *ThumbnailService) GetThumb(ctx context.Context, path string, width int) (model.Image, *os.File, error) {
+func (s *ThumbnailService) GetThumb(ctx context.Context, path string, width int, prio thumbnail.Priority) (model.Image, *os.File, error) {
 	if !model.IsValidThumbBucket(width) {
 		width = 300
 	}
@@ -70,7 +73,7 @@ func (s *ThumbnailService) GetThumb(ctx context.Context, path string, width int)
 	if err != nil {
 		return model.Image{}, nil, err
 	}
-	return s.deliver(ctx, path, model.VariantThumb, width, info, cachePath, thumbnail.PriorityHigh)
+	return s.deliver(ctx, path, model.VariantThumb, width, info, cachePath, prio)
 }
 
 // GetPreview 返回 preview 变体预览图，流程同 GetThumb（bucket 固定 PreviewLongEdge）；
@@ -138,15 +141,28 @@ func (s *ThumbnailService) deliver(ctx context.Context, path, variant string, si
 			return model.Image{}, nil, err
 		}
 
-		f := &flight{done: make(chan struct{})}
+		f := &flight{done: make(chan struct{}), prio: prio}
 		actual, loaded := s.inflight.LoadOrStore(cachePath, f)
 		if loaded {
-			// 等待者：等执行者收尾（落盘 / 失败 / 被取消）
-			<-actual.(*flight).done
-			if file, err := os.Open(cachePath); err == nil {
-				return info, file, nil
+			fl := actual.(*flight)
+			if prio >= fl.prio {
+				// 等待者（优先级不高于在飞任务）：等执行者收尾（落盘 / 失败 / 被取消）
+				<-fl.done
+				if file, err := os.Open(cachePath); err == nil {
+					return info, file, nil
+				}
+				continue
 			}
-			continue
+			// 高优先级请求撞上低优先级在飞任务（用户点击 vs 后台预热同一张图）：
+			// 等待低优任务等于把用户请求降级到它的队列位置，不可接受——
+			// 以自身优先级双跑一次生成，WriteAtomic 保证并发写一致，多付一次
+			// 生成换用户即时响应；不触碰 flight（收尾/Delete/close 仍归原低优
+			// 执行者），其余低优等待者不受影响。
+			oc := s.enqueue(ctx, prio, path, variant, sizeBucket, info, cachePath)
+			if oc.cancelled {
+				return model.Image{}, nil, ctx.Err()
+			}
+			return s.settleGen(path, variant, cachePath, info, oc)
 		}
 
 		// 执行者：经调度器排队执行 生成 → 落盘 → 唤醒等待者；索引登记移出生成槽，
@@ -163,17 +179,22 @@ func (s *ThumbnailService) deliver(ctx context.Context, path, variant string, si
 			// 排队中被 ctx 取消：run 未执行，直接把取消带给调用方
 			return model.Image{}, nil, ctx.Err()
 		}
-		if oc.genErr == nil {
-			// 索引登记不占用生成槽：失败仅记日志，不阻断请求（缓存文件已生成，可用性优先）
-			go s.index(path, variant, cachePath, info, oc.width, oc.height)
-			// 趁热级联：thumb 刚从原图生成（源文件仍在 page cache），若同源 preview
-			// 未缓存，顺手低优先级补生成——用户随后点开该图时 preview 秒出。
-			if variant == model.VariantThumb {
-				s.cascadePreview(path, info)
-			}
-		}
-		return info, oc.file, oc.genErr
+		return s.settleGen(path, variant, cachePath, info, oc)
 	}
+}
+
+// settleGen 处理一次生成结果并返回交付三元组：成功时槽外补记索引，
+// thumb 变体触发趁热级联 preview（源文件仍在 page cache）。
+// deliver 执行者与高优先级双跑路径共用。
+func (s *ThumbnailService) settleGen(path, variant, cachePath string, info model.Image, oc genOutcome) (model.Image, *os.File, error) {
+	if oc.genErr == nil {
+		// 索引登记不占用生成槽：失败仅记日志，不阻断请求（缓存文件已生成，可用性优先）
+		go s.index(path, variant, cachePath, info, oc.width, oc.height)
+		if variant == model.VariantThumb {
+			s.cascadePreview(path, info)
+		}
+	}
+	return info, oc.file, oc.genErr
 }
 
 // genOutcome 一次排队生成的结果。cancelled 表示排队中被 ctx 取消（run 未执行），
@@ -239,7 +260,8 @@ func (s *ThumbnailService) cascadePreview(path string, info model.Image) {
 }
 
 // WarmThumb 后台预热：确保 path 的 thumb 缓存存在（低优先级），返回是否实际生成。
-// 供 ThumbWarmer 调用；复用 deliver 全部语义（singleflight/负缓存/成功后级联 preview）。
+// 供 CacheWarmer 调用；preview 新鲜时 render 自动从 preview 派生（小 IO），
+// 复用 deliver 全部语义（singleflight/负缓存/成功后级联 preview）。
 // 已缓存或负缓存命中时不做任何生成；调用方以串行节奏调用即可天然限流。
 func (s *ThumbnailService) WarmThumb(ctx context.Context, path string) (bool, error) {
 	info, cachePath, err := s.prepare(path, model.VariantThumb, 300)
@@ -254,6 +276,40 @@ func (s *ThumbnailService) WarmThumb(ctx context.Context, path string) (bool, er
 		file.Close()
 	}
 	return true, err
+}
+
+// WarmPreview 后台预热：确保 path 的 preview 缓存存在（低优先级），返回是否实际生成。
+// 预热顺序"先 preview 后 thumb"：preview 落盘后 WarmThumb 自动从它派生，
+// 每张图只读一次原图、只做一次大解码。
+func (s *ThumbnailService) WarmPreview(ctx context.Context, path string) (bool, error) {
+	info, cachePath, err := s.prepare(path, model.VariantPreview, model.PreviewLongEdge)
+	if err != nil {
+		return false, err
+	}
+	if thumbnail.IsFresh(cachePath) {
+		return false, nil
+	}
+	_, file, err := s.deliver(ctx, path, model.VariantPreview, model.PreviewLongEdge, info, cachePath, thumbnail.PriorityLow)
+	if file != nil {
+		file.Close()
+	}
+	return true, err
+}
+
+// FrontendIdleFor 返回距最近一次前台（高优先级）生成请求的时长，供预热器闲时判定。
+func (s *ThumbnailService) FrontendIdleFor() time.Duration {
+	return s.sched.FrontendIdleFor()
+}
+
+// NoteFrontendWarmTraffic 记录一次前端低优先级（X-Load-Priority: low）HTTP 请求到达，
+// 供后台预热器判定前端闲时预热（WARMUP/DIRWARM）是否仍在推进。仅 handler 层调用。
+func (s *ThumbnailService) NoteFrontendWarmTraffic() {
+	s.sched.NoteFrontendWarmTraffic()
+}
+
+// FrontendWarmIdleFor 返回距最近一次前端低优先级请求的时长，供预热器闲时判定。
+func (s *ThumbnailService) FrontendWarmIdleFor() time.Duration {
+	return s.sched.FrontendWarmIdleFor()
 }
 
 // recordNegative 记录生成失败负缓存；取消类错误不入缓存——它们不代表图坏，

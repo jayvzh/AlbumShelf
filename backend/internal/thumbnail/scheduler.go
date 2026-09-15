@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // ErrQueueFull 队列深度达到上限时 Submit 返回的哨兵错误。
@@ -42,6 +45,20 @@ type Scheduler struct {
 	slots  chan struct{}
 	mu     sync.Mutex
 	queues [2][]*job
+
+	// lastHighMicros 最近一次高优先级任务入队的时刻（UnixMicro），供后台预热器
+	// 判定前台是否空闲（FrontendIdleFor）：优先级只决定排队顺序，挡不住在飞
+	// 任务与 IO 竞争，预热器必须额外等前台静默后再推进。
+	// 前台持续产生缩略图/预览图请求 = 正在浏览。
+	lastHighMicros atomic.Int64
+
+	// lastWarmMicros 最近一次收到前端低优先级（X-Load-Priority: low）HTTP 请求的
+	// 时刻（UnixMicro）。与 lastHighMicros 区分：前者是用户可见请求（浏览中），
+	// 本者是前端预加载器的闲时预热流量（WARMUP 滑窗 / DIRWARM 目录预热）。
+	// 后台预热器据此（FrontendWarmIdleFor）在前端预热未完成时不推进，实现
+	// "目录预热完成后才轮到全库后台构建"。打点只能来自 handler 层——若挂在
+	// Submit(PriorityLow) 上，预热器自身提交的低优任务会把自己挡死。
+	lastWarmMicros atomic.Int64
 }
 
 // schedulerConcurrency 记录最近一次 NewScheduler 的并发上限，供
@@ -70,6 +87,8 @@ func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error
 	}
 	if prio != PriorityHigh {
 		prio = PriorityLow
+	} else {
+		s.lastHighMicros.Store(time.Now().UnixMicro())
 	}
 	j := &job{prio: prio, ctx: ctx, run: run, done: make(chan struct{})}
 	s.mu.Lock()
@@ -86,6 +105,32 @@ func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error
 		return ctx.Err()
 	}
 	return j.err
+}
+
+// FrontendIdleFor 返回距最近一次高优先级任务入队已过去的时长。
+// 从未有前台任务时返回最大时长（视为一直空闲）——后台预热器据此放心启动。
+func (s *Scheduler) FrontendIdleFor() time.Duration {
+	last := s.lastHighMicros.Load()
+	if last == 0 {
+		return time.Duration(math.MaxInt64)
+	}
+	return time.Since(time.UnixMicro(last))
+}
+
+// NoteFrontendWarmTraffic 记录一次前端低优先级（X-Load-Priority: low）HTTP 请求
+// 到达。仅 handler 层调用（见 lastWarmMicros 注释）。
+func (s *Scheduler) NoteFrontendWarmTraffic() {
+	s.lastWarmMicros.Store(time.Now().UnixMicro())
+}
+
+// FrontendWarmIdleFor 返回距最近一次前端低优先级请求已过去的时长。
+// 从未有过此类请求时返回最大时长（视为一直空闲）。
+func (s *Scheduler) FrontendWarmIdleFor() time.Duration {
+	last := s.lastWarmMicros.Load()
+	if last == 0 {
+		return time.Duration(math.MaxInt64)
+	}
+	return time.Since(time.UnixMicro(last))
 }
 
 // pump 尝试占用空闲槽位并派发队首任务；无任务则归还槽位。
