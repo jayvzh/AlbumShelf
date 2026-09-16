@@ -199,31 +199,58 @@ func TestSchedulerQueueFull(t *testing.T) {
 			<-release
 		})
 	}()
-	<-started // 确认槽位已被阻塞任务占用
+	<-started // 确保槽位已被阻塞任务占用
 
-	// 同包测试直接填充内部队列到上限（起 256 个 Submit goroutine 既慢又无必要）
+	// 同包测试直接填充 low 队列到上限（起 256 个 Submit goroutine 既慢又无必要）
 	s.mu.Lock()
-	for len(s.queues[PriorityHigh])+len(s.queues[PriorityLow]) < maxQueueDepth {
+	for len(s.queues[PriorityLow]) < maxQueueDepth {
 		s.queues[PriorityLow] = append(s.queues[PriorityLow],
 			&job{prio: PriorityLow, ctx: context.Background(), run: func() {}, done: make(chan struct{})})
 	}
 	s.mu.Unlock()
 
-	err := s.Submit(context.Background(), PriorityHigh, func() {})
-	if !errors.Is(err, ErrQueueFull) {
+	// low 队列已满：同优先级提交立即拒绝
+	if err := s.Submit(context.Background(), PriorityLow, func() {}); !errors.Is(err, ErrQueueFull) {
 		t.Fatalf("期望 ErrQueueFull，得到 %v", err)
 	}
 
-	// 清理：丢弃填充任务并释放阻塞槽位
-	s.mu.Lock()
-	for prio := range s.queues {
-		for _, j := range s.queues[prio] {
-			close(j.done)
+	// 独立上限：low 塞满不得挤掉 high 的入队资格——high 应正常入队并在释放后执行
+	highRan := make(chan struct{})
+	highDone := make(chan error, 1)
+	go func() {
+		highDone <- s.Submit(context.Background(), PriorityHigh, func() { close(highRan) })
+	}()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		s.mu.Lock()
+		enqueued := len(s.queues[PriorityHigh]) == 1
+		s.mu.Unlock()
+		if enqueued {
+			break
 		}
-		s.queues[prio] = nil
+		if time.Now().After(deadline) {
+			t.Fatal("high 任务未能按时入队（被 low 队列挤占）")
+		}
+		time.Sleep(time.Millisecond)
 	}
+
+	// 清理：丢弃 low 填充任务并释放阻塞槽位
+	s.mu.Lock()
+	for _, j := range s.queues[PriorityLow] {
+		close(j.done)
+	}
+	s.queues[PriorityLow] = nil
 	s.mu.Unlock()
 	close(release)
+
+	select {
+	case <-highRan:
+	case <-time.After(2 * time.Second):
+		t.Fatal("high 任务未执行")
+	}
+	if err := <-highDone; err != nil {
+		t.Fatalf("high Submit: %v", err)
+	}
 	if err := <-blockerDone; err != nil {
 		t.Fatalf("阻塞任务 Submit: %v", err)
 	}

@@ -10,11 +10,13 @@ import (
 	"time"
 )
 
-// ErrQueueFull 队列深度达到上限时 Submit 返回的哨兵错误。
+// ErrQueueFull 对应优先级队列深度达到上限时 Enqueue/Submit 返回的哨兵错误。
 var ErrQueueFull = errors.New("thumbnail: 调度队列已满")
 
-// maxQueueDepth 高低优先级队列总深度上限：防止异常客户端无限堆积任务
-// 占用等待 goroutine（正常浏览远达不到该量级，前端预热已窗口化）。
+// maxQueueDepth 单条优先级队列的深度上限（高/低各自独立计数）：
+// 独立上限保证后台预热（low）永远挤不掉用户当前查看（high）的入队资格；
+// 防止异常客户端无限堆积任务占用等待 goroutine（正常浏览远达不到该量级，
+// 前端预热已窗口化）。
 const maxQueueDepth = 256
 
 // Priority 描述生成任务的调度优先级：
@@ -79,8 +81,8 @@ func NewScheduler(concurrency int) *Scheduler {
 //   - 尚未出队 → 任务被丢弃，返回 ctx.Err() 且 run 不执行；
 //   - 已开工 → 等待本次 run 执行完毕（无法中断），返回 nil。
 //
-// 队列总深度达到 maxQueueDepth 时立即返回 ErrQueueFull，不入队。
-// run panic 被 exec 兜底 recover，Submit 返回包含 panic 值的错误而非悬挂。
+// 对应优先级队列达到 maxQueueDepth 时立即返回 ErrQueueFull，不入队。
+// run panic 被 exec 兜底 recover，返回包含 panic 值的错误而非悬挂。
 func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -92,7 +94,7 @@ func (s *Scheduler) Submit(ctx context.Context, prio Priority, run func()) error
 	}
 	j := &job{prio: prio, ctx: ctx, run: run, done: make(chan struct{})}
 	s.mu.Lock()
-	if len(s.queues[PriorityHigh])+len(s.queues[PriorityLow]) >= maxQueueDepth {
+	if len(s.queues[prio]) >= maxQueueDepth {
 		s.mu.Unlock()
 		return ErrQueueFull
 	}
